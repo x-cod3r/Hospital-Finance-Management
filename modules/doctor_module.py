@@ -1,14 +1,78 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import sqlite3
+import csv
 from datetime import datetime
 from .utils import calculate_hours, format_currency
+from modules.database import get_db_connection
+from .utils import format_currency
 
 class DoctorModule:
     def __init__(self, parent):
         self.parent = parent
+        self.setup_database()
         self.setup_ui()
         self.load_doctors()
+
+    def setup_database(self):
+        """Create database tables if they don't exist"""
+        conn = get_db_connection("doctors.db")
+        cursor = conn.cursor()
+
+        # Create doctors table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS doctors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                hourly_rate REAL NOT NULL
+            )
+        ''')
+
+        # Create doctor_shifts table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS doctor_shifts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                doctor_id INTEGER NOT NULL,
+                arrival_datetime TIMESTAMP NOT NULL,
+                leave_datetime TIMESTAMP NOT NULL,
+                FOREIGN KEY (doctor_id) REFERENCES doctors (id)
+            )
+        ''')
+
+        # Create interventions table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS interventions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                bonus_amount REAL NOT NULL
+            )
+        ''')
+
+        # Create doctor_interventions table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS doctor_interventions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                doctor_id INTEGER NOT NULL,
+                date DATE NOT NULL,
+                intervention_id INTEGER NOT NULL,
+                FOREIGN KEY (doctor_id) REFERENCES doctors (id),
+                FOREIGN KEY (intervention_id) REFERENCES interventions (id)
+            )
+        ''')
+
+        # Create doctor_payments table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS doctor_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                doctor_id INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                year INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                FOREIGN KEY (doctor_id) REFERENCES doctors (id)
+            )
+        ''')
+
+        conn.commit()
     
     def setup_ui(self):
         # Main frame
@@ -123,22 +187,20 @@ class DoctorModule:
         """Load doctors into listbox"""
         self.doctors_listbox.delete(0, tk.END)
         
-        conn = sqlite3.connect("db/doctors.db")
+        conn = get_db_connection("doctors.db")
         cursor = conn.cursor()
         cursor.execute("SELECT id, name FROM doctors ORDER BY name")
         doctors = cursor.fetchall()
-        conn.close()
         
         for doctor in doctors:
             self.doctors_listbox.insert(tk.END, f"{doctor[0]}: {doctor[1]}")
     
     def load_interventions(self):
         """Load interventions into combobox"""
-        conn = sqlite3.connect("db/interventions.db")
+        conn = get_db_connection("doctors.db")
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM interventions ORDER BY name")
         interventions = cursor.fetchall()
-        conn.close()
         
         self.intervention_combo['values'] = [i[0] for i in interventions]
     
@@ -150,11 +212,10 @@ class DoctorModule:
             doctor_text = self.doctors_listbox.get(index)
             doctor_id = int(doctor_text.split(":")[0])
             
-            conn = sqlite3.connect("db/doctors.db")
+            conn = get_db_connection("doctors.db")
             cursor = conn.cursor()
             cursor.execute("SELECT name, hourly_rate FROM doctors WHERE id = ?", (doctor_id,))
             doctor = cursor.fetchone()
-            conn.close()
             
             if doctor:
                 self.name_var.set(doctor[0])
@@ -196,7 +257,7 @@ class DoctorModule:
                 messagebox.showerror("Error", "Please enter a doctor name")
                 return
             
-            conn = sqlite3.connect("db/doctors.db")
+            conn = get_db_connection("doctors.db")
             cursor = conn.cursor()
             try:
                 cursor.execute("INSERT INTO doctors (name, hourly_rate) VALUES (?, ?)", (name, rate))
@@ -206,8 +267,6 @@ class DoctorModule:
                 self.load_doctors()
             except sqlite3.Error as e:
                 messagebox.showerror("Error", f"Failed to add doctor: {e}")
-            finally:
-                conn.close()
         
         ttk.Button(add_window, text="Save", command=save_doctor).pack(pady=10)
         
@@ -221,11 +280,10 @@ class DoctorModule:
             return
         
         # Get current doctor info
-        conn = sqlite3.connect("db/doctors.db")
+        conn = get_db_connection("doctors.db")
         cursor = conn.cursor()
         cursor.execute("SELECT name, hourly_rate FROM doctors WHERE id = ?", (self.current_doctor_id,))
         doctor = cursor.fetchone()
-        conn.close()
         
         if not doctor:
             return
@@ -264,7 +322,7 @@ class DoctorModule:
                 messagebox.showerror("Error", "Please enter a doctor name")
                 return
             
-            conn = sqlite3.connect("db/doctors.db")
+            conn = get_db_connection("doctors.db")
             cursor = conn.cursor()
             try:
                 cursor.execute("UPDATE doctors SET name = ?, hourly_rate = ? WHERE id = ?", 
@@ -277,8 +335,6 @@ class DoctorModule:
                 self.rate_var.set(format_currency(rate))
             except sqlite3.Error as e:
                 messagebox.showerror("Error", f"Failed to update doctor: {e}")
-            finally:
-                conn.close()
         
         ttk.Button(edit_window, text="Save", command=save_doctor).pack(pady=10)
         
@@ -296,7 +352,7 @@ class DoctorModule:
         if not result:
             return
         
-        conn = sqlite3.connect("db/doctors.db")
+        conn = get_db_connection("doctors.db")
         cursor = conn.cursor()
         try:
             # Delete related records first
@@ -317,8 +373,6 @@ class DoctorModule:
             delattr(self, 'current_doctor_id')
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to delete doctor: {e}")
-        finally:
-            conn.close()
     
     def add_shift(self):
         """Add shift for selected doctor"""
@@ -347,14 +401,13 @@ class DoctorModule:
 
             hours = calculate_hours(arrival_datetime, leave_datetime)
 
-            conn = sqlite3.connect("db/doctors.db")
+            conn = get_db_connection("doctors.db")
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO doctor_shifts (doctor_id, arrival_datetime, leave_datetime)
                 VALUES (?, ?, ?)
             """, (self.current_doctor_id, arrival_datetime, leave_datetime))
             conn.commit()
-            conn.close()
 
             messagebox.showinfo("Success", f"Shift added successfully ({hours} hours)")
 
@@ -381,11 +434,10 @@ class DoctorModule:
             return
         
         # Get intervention ID
-        conn = sqlite3.connect("db/interventions.db")
+        conn = get_db_connection("doctors.db")
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM interventions WHERE name = ?", (intervention_name,))
         intervention = cursor.fetchone()
-        conn.close()
         
         if not intervention:
             messagebox.showerror("Error", "Invalid intervention selected")
@@ -393,8 +445,6 @@ class DoctorModule:
         
         intervention_id = intervention[0]
         
-        conn = sqlite3.connect("db/doctors.db")
-        cursor = conn.cursor()
         try:
             cursor.execute("""
                 INSERT INTO doctor_interventions (doctor_id, date, intervention_id)
@@ -407,8 +457,6 @@ class DoctorModule:
             self.intervention_var.set("")
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to add intervention: {e}")
-        finally:
-            conn.close()
     
     def calculate_salary(self):
         """Calculate salary for selected doctor"""
@@ -424,13 +472,12 @@ class DoctorModule:
             return
         
         # Get doctor info
-        conn = sqlite3.connect("db/doctors.db")
+        conn = get_db_connection("doctors.db")
         cursor = conn.cursor()
         cursor.execute("SELECT name, hourly_rate FROM doctors WHERE id = ?", (self.current_doctor_id,))
         doctor = cursor.fetchone()
         
         if not doctor:
-            conn.close()
             return
         
         doctor_name, hourly_rate = doctor
@@ -465,8 +512,6 @@ class DoctorModule:
         base_salary = total_hours * hourly_rate
         total_salary = base_salary + total_bonus
         
-        conn.close()
-        
         # Show results
         result_text = f"""
 Doctor: {doctor_name}
@@ -495,5 +540,75 @@ Total Salary: {format_currency(total_salary)}
             messagebox.showerror("Error", "Please enter valid month and year")
             return
         
-        # In a real implementation, this would generate an Excel/CSV file
-        messagebox.showinfo("Export", "Salary sheet exported successfully!\n(In a real implementation, this would create an Excel file)")
+        # Get doctor info
+        conn = get_db_connection("doctors.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, hourly_rate FROM doctors WHERE id = ?", (self.current_doctor_id,))
+        doctor = cursor.fetchone()
+
+        if not doctor:
+            return
+
+        doctor_name, hourly_rate = doctor
+
+        # Calculate total hours
+        cursor.execute("""
+            SELECT arrival_datetime, leave_datetime FROM doctor_shifts
+            WHERE doctor_id = ? AND
+                  strftime('%m', arrival_datetime) = ? AND
+                  strftime('%Y', arrival_datetime) = ?
+        """, (self.current_doctor_id, f"{month:02d}", str(year)))
+
+        shifts = cursor.fetchall()
+        total_hours = 0.0
+        for shift in shifts:
+            arrival_datetime = datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S")
+            leave_datetime = datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")
+            total_hours += calculate_hours(arrival_datetime, leave_datetime)
+
+        # Calculate total bonus from interventions
+        cursor.execute("""
+            SELECT SUM(i.bonus_amount)
+            FROM doctor_interventions di
+            JOIN interventions i ON di.intervention_id = i.id
+            WHERE di.doctor_id = ? AND strftime('%m', di.date) = ? AND strftime('%Y', di.date) = ?
+        """, (self.current_doctor_id, f"{month:02d}", str(year)))
+
+        total_bonus_result = cursor.fetchone()[0]
+        total_bonus = total_bonus_result if total_bonus_result else 0.0
+
+        # Calculate total salary
+        base_salary = total_hours * hourly_rate
+        total_salary = base_salary + total_bonus
+
+        # Ask for file path
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile=f"{doctor_name}_salary_{month:02d}_{year}.csv"
+        )
+
+        if not file_path:
+            return
+
+        # Write to CSV
+        try:
+            with open(file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+
+                # Header
+                writer.writerow(["Doctor", "Period"])
+                writer.writerow([doctor_name, f"{month:02d}/{year}"])
+                writer.writerow([])
+
+                # Details
+                writer.writerow(["Description", "Value"])
+                writer.writerow(["Total Hours", f"{total_hours:.2f}"])
+                writer.writerow(["Hourly Rate", format_currency(hourly_rate)])
+                writer.writerow(["Base Salary", format_currency(base_salary)])
+                writer.writerow(["Bonus from Interventions", format_currency(total_bonus)])
+                writer.writerow(["Total Salary", format_currency(total_salary)])
+
+            messagebox.showinfo("Export Successful", f"Salary sheet exported to {file_path}")
+        except IOError as e:
+            messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")

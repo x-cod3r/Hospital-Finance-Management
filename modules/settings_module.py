@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 import sqlite3
 import os
 from modules.auth import AuthModule
+from modules.database import get_db_connection
 
 class SettingsModule:
     def __init__(self, parent):
@@ -30,6 +31,11 @@ class SettingsModule:
         notebook.add(user_tab, text="User Management")
         self.setup_user_tab(user_tab)
         
+        # Interventions tab
+        interventions_tab = ttk.Frame(notebook)
+        notebook.add(interventions_tab, text="Interventions")
+        self.setup_interventions_tab(interventions_tab)
+
         # Audit log tab
         log_tab = ttk.Frame(notebook)
         notebook.add(log_tab, text="Audit Log")
@@ -115,6 +121,141 @@ class SettingsModule:
         # Load users
         self.load_users()
     
+    def setup_interventions_tab(self, parent):
+        """Setup interventions management tab"""
+        # Intervention list
+        list_frame = ttk.LabelFrame(parent, text="Interventions", padding="10")
+        list_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, padx=(0, 10))
+
+        self.interventions_listbox = tk.Listbox(list_frame)
+        self.interventions_listbox.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Buttons
+        buttons_frame = ttk.Frame(list_frame)
+        buttons_frame.pack(fill=tk.X)
+
+        ttk.Button(buttons_frame, text="Refresh", command=self.load_interventions).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(buttons_frame, text="Add Intervention", command=self.add_intervention).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(buttons_frame, text="Edit Intervention", command=self.edit_intervention).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(buttons_frame, text="Delete Intervention", command=self.delete_intervention).pack(side=tk.LEFT)
+
+        # Add/Edit intervention frame
+        add_frame = ttk.LabelFrame(parent, text="Add/Edit Intervention", padding="10")
+        add_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
+
+        ttk.Label(add_frame, text="Name:").pack(anchor=tk.W, pady=(0, 5))
+        self.intervention_name_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.intervention_name_var).pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(add_frame, text="Bonus Amount:").pack(anchor=tk.W, pady=(0, 5))
+        self.intervention_bonus_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.intervention_bonus_var).pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Button(add_frame, text="Save Intervention", command=self.save_intervention).pack(pady=10)
+
+        # Load interventions
+        self.load_interventions()
+
+    def load_interventions(self):
+        """Load interventions into listbox"""
+        self.interventions_listbox.delete(0, tk.END)
+        conn = get_db_connection("doctors.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, bonus_amount FROM interventions ORDER BY name")
+        interventions = cursor.fetchall()
+
+        for intervention in interventions:
+            self.interventions_listbox.insert(tk.END, f"{intervention[0]}: {intervention[1]} ({format_currency(intervention[2])})")
+
+    def add_intervention(self):
+        """Add a new intervention"""
+        self.intervention_name_var.set("")
+        self.intervention_bonus_var.set("")
+        self.current_intervention_id = None
+
+    def edit_intervention(self):
+        """Edit selected intervention"""
+        selection = self.interventions_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select an intervention to edit")
+            return
+
+        # Get intervention ID from selection
+        intervention_text = self.interventions_listbox.get(selection[0])
+        intervention_id = int(intervention_text.split(":")[0])
+
+        conn = get_db_connection("doctors.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, bonus_amount FROM interventions WHERE id = ?", (intervention_id,))
+        intervention = cursor.fetchone()
+
+        if intervention:
+            self.intervention_name_var.set(intervention[0])
+            self.intervention_bonus_var.set(intervention[1])
+            self.current_intervention_id = intervention_id
+
+    def delete_intervention(self):
+        """Delete selected intervention"""
+        selection = self.interventions_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select an intervention to delete")
+            return
+
+        # Get intervention ID from selection
+        intervention_text = self.interventions_listbox.get(selection[0])
+        intervention_id = int(intervention_text.split(":")[0])
+
+        # Confirm deletion
+        result = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete this intervention?")
+        if not result:
+            return
+
+        conn = get_db_connection("doctors.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM interventions WHERE id = ?", (intervention_id,))
+            conn.commit()
+            messagebox.showinfo("Success", "Intervention deleted successfully")
+            self.load_interventions()
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Failed to delete intervention: {e}")
+
+    def save_intervention(self):
+        """Save new or edited intervention"""
+        name = self.intervention_name_var.get().strip()
+        try:
+            bonus = float(self.intervention_bonus_var.get())
+        except ValueError:
+            messagebox.showerror("Error", "Please enter a valid bonus amount")
+            return
+
+        if not name:
+            messagebox.showerror("Error", "Please enter an intervention name")
+            return
+
+        conn = get_db_connection("doctors.db")
+        cursor = conn.cursor()
+
+        try:
+            if hasattr(self, 'current_intervention_id') and self.current_intervention_id:
+                # Update existing intervention
+                cursor.execute("UPDATE interventions SET name = ?, bonus_amount = ? WHERE id = ?",
+                              (name, bonus, self.current_intervention_id))
+            else:
+                # Insert new intervention
+                cursor.execute("INSERT INTO interventions (name, bonus_amount) VALUES (?, ?)", (name, bonus))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Intervention saved successfully")
+            self.load_interventions()
+
+            # Clear fields
+            self.intervention_name_var.set("")
+            self.intervention_bonus_var.set("")
+            delattr(self, 'current_intervention_id')
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Failed to save intervention: {e}")
+
     def setup_log_tab(self, parent):
         """Setup audit log tab"""
         # Create text widget with scrollbar
