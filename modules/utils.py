@@ -40,10 +40,8 @@ def setup_doctors_db():
         CREATE TABLE IF NOT EXISTS doctor_shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             doctor_id INTEGER,
-            date DATE NOT NULL,
-            arrival_time TEXT,
-            leave_time TEXT,
-            hours_worked REAL,
+            arrival_datetime TIMESTAMP,
+            leave_datetime TIMESTAMP,
             FOREIGN KEY (doctor_id) REFERENCES doctors (id)
         )
     ''')
@@ -96,10 +94,8 @@ def setup_nurses_db():
         CREATE TABLE IF NOT EXISTS nurse_shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nurse_id INTEGER,
-            date DATE NOT NULL,
-            arrival_time TEXT,
-            leave_time TEXT,
-            hours_worked REAL,
+            arrival_datetime TIMESTAMP,
+            leave_datetime TIMESTAMP,
             FOREIGN KEY (nurse_id) REFERENCES nurses (id)
         )
     ''')
@@ -345,24 +341,14 @@ def setup_items_db():
     conn.commit()
     conn.close()
 
-def calculate_hours(arrival_time, leave_time):
-    """Calculate hours worked between two time strings (HH:MM format)"""
-    if not arrival_time or not leave_time:
+def calculate_hours(arrival_datetime, leave_datetime):
+    """Calculate hours worked between two datetime objects"""
+    if not arrival_datetime or not leave_datetime:
         return 0.0
     
     try:
-        from datetime import datetime, timedelta
-        
-        # Parse times
-        arrival = datetime.strptime(arrival_time, "%H:%M")
-        leave = datetime.strptime(leave_time, "%H:%M")
-        
-        # Handle overnight shifts
-        if leave < arrival:
-            leave += timedelta(days=1)
-        
         # Calculate difference in hours
-        diff = leave - arrival
+        diff = leave_datetime - arrival_datetime
         hours = diff.total_seconds() / 3600
         
         return round(hours, 2)

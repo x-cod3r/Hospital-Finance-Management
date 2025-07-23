@@ -53,21 +53,36 @@ class NurseModule:
         shift_frame = ttk.LabelFrame(details_frame, text="Shift Tracking", padding="5")
         shift_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         shift_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(shift_frame, text="Date:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        self.date_var = tk.StringVar()
-        self.date_var.set(datetime.now().strftime("%Y-%m-%d"))
-        ttk.Entry(shift_frame, textvariable=self.date_var).grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
-        
+
+        ttk.Label(shift_frame, text="Arrival Date:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.arrival_date_var = tk.StringVar()
+        self.arrival_date_var.set(datetime.now().strftime("%Y-%m-%d"))
+        ttk.Entry(shift_frame, textvariable=self.arrival_date_var).grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+
         ttk.Label(shift_frame, text="Arrival Time (HH:MM):").grid(row=1, column=0, sticky=tk.W, pady=2)
-        self.arrival_var = tk.StringVar()
-        ttk.Entry(shift_frame, textvariable=self.arrival_var).grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+        self.arrival_time_var = tk.StringVar()
+        ttk.Entry(shift_frame, textvariable=self.arrival_time_var).grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+
+        ttk.Label(shift_frame, text="AM/PM:").grid(row=1, column=2, sticky=tk.W, pady=2, padx=(5, 0))
+        self.arrival_ampm_var = tk.StringVar()
+        self.arrival_ampm_var.set("AM")
+        ttk.Combobox(shift_frame, textvariable=self.arrival_ampm_var, values=["AM", "PM"], width=5).grid(row=1, column=3, sticky=tk.W, pady=2)
+
+        ttk.Label(shift_frame, text="Leave Date:").grid(row=2, column=0, sticky=tk.W, pady=2)
+        self.leave_date_var = tk.StringVar()
+        self.leave_date_var.set(datetime.now().strftime("%Y-%m-%d"))
+        ttk.Entry(shift_frame, textvariable=self.leave_date_var).grid(row=2, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+
+        ttk.Label(shift_frame, text="Leave Time (HH:MM):").grid(row=3, column=0, sticky=tk.W, pady=2)
+        self.leave_time_var = tk.StringVar()
+        ttk.Entry(shift_frame, textvariable=self.leave_time_var).grid(row=3, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+
+        ttk.Label(shift_frame, text="AM/PM:").grid(row=3, column=2, sticky=tk.W, pady=2, padx=(5, 0))
+        self.leave_ampm_var = tk.StringVar()
+        self.leave_ampm_var.set("AM")
+        ttk.Combobox(shift_frame, textvariable=self.leave_ampm_var, values=["AM", "PM"], width=5).grid(row=3, column=3, sticky=tk.W, pady=2)
         
-        ttk.Label(shift_frame, text="Leave Time (HH:MM):").grid(row=2, column=0, sticky=tk.W, pady=2)
-        self.leave_var = tk.StringVar()
-        ttk.Entry(shift_frame, textvariable=self.leave_var).grid(row=2, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
-        
-        ttk.Button(shift_frame, text="Add Shift", command=self.add_shift).grid(row=3, column=0, columnspan=2, pady=5)
+        ttk.Button(shift_frame, text="Add Shift", command=self.add_shift).grid(row=4, column=0, columnspan=4, pady=5)
         
         # Interventions
         interventions_frame = ttk.LabelFrame(details_frame, text="Interventions", padding="5")
@@ -342,34 +357,46 @@ class NurseModule:
             messagebox.showwarning("Warning", "Please select a nurse first")
             return
         
-        date = self.date_var.get().strip()
-        arrival = self.arrival_var.get().strip()
-        leave = self.leave_var.get().strip()
-        
-        if not date or not arrival or not leave:
-            messagebox.showerror("Error", "Please fill in all shift details")
-            return
-        
-        # Calculate hours
-        hours = calculate_hours(arrival, leave)
-        
-        conn = sqlite3.connect("db/nurses.db")
-        cursor = conn.cursor()
         try:
+            arrival_date_str = self.arrival_date_var.get().strip()
+            arrival_time_str = self.arrival_time_var.get().strip()
+            arrival_ampm = self.arrival_ampm_var.get()
+
+            leave_date_str = self.leave_date_var.get().strip()
+            leave_time_str = self.leave_time_var.get().strip()
+            leave_ampm = self.leave_ampm_var.get()
+
+            if not all([arrival_date_str, arrival_time_str, leave_date_str, leave_time_str]):
+                messagebox.showerror("Error", "Please fill in all shift details")
+                return
+
+            arrival_datetime_str = f"{arrival_date_str} {arrival_time_str} {arrival_ampm}"
+            leave_datetime_str = f"{leave_date_str} {leave_time_str} {leave_ampm}"
+
+            arrival_datetime = datetime.strptime(arrival_datetime_str, "%Y-%m-%d %I:%M %p")
+            leave_datetime = datetime.strptime(leave_datetime_str, "%Y-%m-%d %I:%M %p")
+
+            hours = calculate_hours(arrival_datetime, leave_datetime)
+
+            conn = sqlite3.connect("db/nurses.db")
+            cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO nurse_shifts (nurse_id, date, arrival_time, leave_time, hours_worked)
-                VALUES (?, ?, ?, ?, ?)
-            """, (self.current_nurse_id, date, arrival, leave, hours))
+                INSERT INTO nurse_shifts (nurse_id, arrival_datetime, leave_datetime)
+                VALUES (?, ?, ?)
+            """, (self.current_nurse_id, arrival_datetime, leave_datetime))
             conn.commit()
+            conn.close()
+
             messagebox.showinfo("Success", f"Shift added successfully ({hours} hours)")
-            
+
             # Clear fields
-            self.arrival_var.set("")
-            self.leave_var.set("")
+            self.arrival_time_var.set("")
+            self.leave_time_var.set("")
+
+        except ValueError:
+            messagebox.showerror("Error", "Invalid date or time format. Please use YYYY-MM-DD and HH:MM.")
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to add shift: {e}")
-        finally:
-            conn.close()
     
     def add_intervention(self):
         """Add intervention for selected nurse"""
@@ -441,12 +468,18 @@ class NurseModule:
         
         # Calculate total hours
         cursor.execute("""
-            SELECT SUM(hours_worked) FROM nurse_shifts 
-            WHERE nurse_id = ? AND strftime('%m', date) = ? AND strftime('%Y', date) = ?
+            SELECT arrival_datetime, leave_datetime FROM nurse_shifts
+            WHERE nurse_id = ? AND
+                  strftime('%m', arrival_datetime) = ? AND
+                  strftime('%Y', arrival_datetime) = ?
         """, (self.current_nurse_id, f"{month:02d}", str(year)))
         
-        total_hours_result = cursor.fetchone()[0]
-        total_hours = total_hours_result if total_hours_result else 0.0
+        shifts = cursor.fetchall()
+        total_hours = 0.0
+        for shift in shifts:
+            arrival_datetime = datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S")
+            leave_datetime = datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")
+            total_hours += calculate_hours(arrival_datetime, leave_datetime)
         
         # Calculate total bonus from interventions
         cursor.execute("""
