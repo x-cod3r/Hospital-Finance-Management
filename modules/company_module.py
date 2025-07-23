@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime, timedelta
-from utils import format_currency
+from .utils import format_currency
 
 class CompanyModule:
     def __init__(self, parent):

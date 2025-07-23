@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
-from utils import calculate_hours, format_currency
+from .utils import calculate_hours, format_currency
 
 class NurseModule:
     def __init__(self, parent):
