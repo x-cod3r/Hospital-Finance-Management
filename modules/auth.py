@@ -1,7 +1,6 @@
 import sqlite3
 import hashlib
-import os
-from datetime import datetime
+from modules.database import get_db_connection
 
 class AuthModule:
     def __init__(self):
@@ -10,9 +9,7 @@ class AuthModule:
     
     def setup_database(self):
         """Create users database and default admin user if not exists"""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
-        conn = sqlite3.connect(self.db_path)
+        conn = get_db_connection("users.db")
         cursor = conn.cursor()
         
         # Create users table
@@ -47,8 +44,6 @@ class AuthModule:
                 ("admin", password_hash, 0)
             )
         
-        conn.commit()
-        conn.close()
     
     def hash_password(self, password):
         """Hash password using SHA-256"""
@@ -56,7 +51,7 @@ class AuthModule:
     
     def authenticate(self, username, password):
         """Authenticate user"""
-        conn = sqlite3.connect(self.db_path)
+        conn = get_db_connection("users.db")
         cursor = conn.cursor()
         
         password_hash = self.hash_password(password)
@@ -66,14 +61,13 @@ class AuthModule:
         )
         
         result = cursor.fetchone()
-        conn.close()
         
         return result is not None
     
     def create_user(self, username, password, creator):
         """Create a new user"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_db_connection("users.db")
             cursor = conn.cursor()
             
             password_hash = self.hash_password(password)
@@ -86,14 +80,13 @@ class AuthModule:
             self.log_action(creator, "CREATE_USER", f"Created user: {username}")
             
             conn.commit()
-            conn.close()
             return True
         except sqlite3.IntegrityError:
             return False  # Username already exists
     
     def delete_user(self, username, requester):
         """Delete a user (users can only delete themselves)"""
-        conn = sqlite3.connect(self.db_path)
+        conn = get_db_connection("users.db")
         cursor = conn.cursor()
         
         # Check if user can be deleted (not admin)
@@ -104,26 +97,23 @@ class AuthModule:
             cursor.execute("DELETE FROM users WHERE username = ?", (username,))
             self.log_action(requester, "DELETE_USER", f"Deleted user: {username}")
             conn.commit()
-            conn.close()
             return True
         else:
-            conn.close()
             return False
     
     def get_all_users(self):
         """Get all users"""
-        conn = sqlite3.connect(self.db_path)
+        conn = get_db_connection("users.db")
         cursor = conn.cursor()
         
         cursor.execute("SELECT username, created_at FROM users")
         users = cursor.fetchall()
         
-        conn.close()
         return users
     
     def log_action(self, user, action, details=""):
         """Log user actions"""
-        conn = sqlite3.connect(self.db_path)
+        conn = get_db_connection("users.db")
         cursor = conn.cursor()
         
         cursor.execute(
@@ -132,15 +122,13 @@ class AuthModule:
         )
         
         conn.commit()
-        conn.close()
     
     def get_logs(self):
         """Get all logs"""
-        conn = sqlite3.connect(self.db_path)
+        conn = get_db_connection("users.db")
         cursor = conn.cursor()
         
         cursor.execute("SELECT user, action, timestamp, details FROM logs ORDER BY timestamp DESC")
         logs = cursor.fetchall()
         
-        conn.close()
         return logs
