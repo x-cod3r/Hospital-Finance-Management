@@ -8,13 +8,16 @@ from modules.nurse_module import NurseModule
 from modules.patient_module import PatientModule
 from modules.company_module import CompanyModule
 from modules.settings_module import SettingsModule
-from modules.database import close_all_connections
+from modules.utils import setup_database
 
 class ICUManagementApp:
     def __init__(self, root):
         self.root = root
         self.root.title("ICU Management System")
         self.root.geometry("1200x800")
+        
+        # Setup databases
+        setup_database()
         
         # Initialize modules
         self.auth_module = AuthModule()
@@ -129,4 +132,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = ICUManagementApp(root)
     root.mainloop()
-    close_all_connections()
