@@ -362,6 +362,7 @@ def format_currency(amount):
 def calculate_salary_details(employee_type, employee_id, month, year):
     """Calculate salary details for a given employee"""
     db_name = f"db/{employee_type}s.db"
+    interventions_db_name = "db/interventions.db"
 
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
@@ -387,22 +388,37 @@ def calculate_salary_details(employee_type, employee_id, month, year):
     total_hours = sum(calculate_hours(datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S"),
                                       datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")) for shift in shifts)
 
-    # Calculate total bonus from interventions
+    # Get intervention IDs
     cursor.execute(f"""
-        SELECT SUM(i.bonus_amount)
-        FROM {employee_type}_interventions di
-        JOIN interventions i ON di.intervention_id = i.id
-        WHERE di.{employee_type}_id = ? AND strftime('%m', di.date) = ? AND strftime('%Y', di.date) = ?
+        SELECT intervention_id FROM {employee_type}_interventions
+        WHERE {employee_type}_id = ? AND
+              strftime('%m', date) = ? AND
+              strftime('%Y', date) = ?
     """, (employee_id, f"{month:02d}", str(year)))
+    intervention_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
 
-    total_bonus_result = cursor.fetchone()[0]
-    total_bonus = total_bonus_result if total_bonus_result else 0.0
+    # Calculate total bonus from interventions
+    total_bonus = 0.0
+    if intervention_ids:
+        conn_interventions = sqlite3.connect(interventions_db_name)
+        cursor_interventions = conn_interventions.cursor()
+
+        placeholders = ','.join('?' for _ in intervention_ids)
+        cursor_interventions.execute(f"""
+            SELECT SUM(bonus_amount)
+            FROM interventions
+            WHERE id IN ({placeholders})
+        """, intervention_ids)
+
+        total_bonus_result = cursor_interventions.fetchone()[0]
+        total_bonus = total_bonus_result if total_bonus_result else 0.0
+
+        conn_interventions.close()
 
     # Calculate total salary
     base_salary = total_hours * hourly_rate
     total_salary = base_salary + total_bonus
-
-    conn.close()
 
     return {
         "name": name,
