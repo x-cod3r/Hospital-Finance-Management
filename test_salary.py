@@ -142,8 +142,23 @@ class TestSalary(unittest.TestCase):
     def test_calculate_nurse_salary_details(self):
         # Temporarily replace the original db path with the test db path
         original_db_path = "db/nurses.db"
+        interventions_db_path = "db/interventions.db"
         os.rename(original_db_path, original_db_path + ".bak")
         os.rename(self.db_path, original_db_path)
+
+        # Create a dummy interventions.db for testing
+        conn_interventions = sqlite3.connect(interventions_db_path)
+        cursor_interventions = conn_interventions.cursor()
+        cursor_interventions.execute('''
+            CREATE TABLE IF NOT EXISTS interventions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                bonus_amount REAL NOT NULL
+            )
+        ''')
+        cursor_interventions.execute("INSERT INTO interventions (id, name, bonus_amount) VALUES (1, 'Test Intervention', 150.0)")
+        conn_interventions.commit()
+        conn_interventions.close()
 
         salary_details = calculate_salary_details("nurse", 1, 10, 2023)
         self.assertIsNotNone(salary_details)
@@ -156,6 +171,7 @@ class TestSalary(unittest.TestCase):
         # Restore the original db path
         os.rename(original_db_path, self.db_path)
         os.rename(original_db_path + ".bak", original_db_path)
+        os.remove(interventions_db_path)
 
 
 if __name__ == '__main__':
