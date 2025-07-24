@@ -482,7 +482,10 @@ Total Salary: {format_currency(total_salary)}
         
         messagebox.showinfo("Salary Calculation", result_text)
     
+
     def export_salary_sheet(self):
+
+        
         """Export salary sheet for selected doctor"""
         if not hasattr(self, 'current_doctor_id'):
             messagebox.showwarning("Warning", "Please select a doctor first")
@@ -495,5 +498,58 @@ Total Salary: {format_currency(total_salary)}
             messagebox.showerror("Error", "Please enter valid month and year")
             return
         
-        # In a real implementation, this would generate an Excel/CSV file
-        messagebox.showinfo("Export", "Salary sheet exported successfully!\n(In a real implementation, this would create an Excel file)")
+        # Get doctor info
+        conn = sqlite3.connect("db/doctors.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, hourly_rate FROM doctors WHERE id = ?", (self.current_doctor_id,))
+        doctor = cursor.fetchone()
+        if not doctor:
+            conn.close()
+            return
+        doctor_name, hourly_rate = doctor
+
+        # Calculate total hours
+        cursor.execute("""
+        SELECT arrival_datetime, leave_datetime FROM doctor_shifts 
+        WHERE doctor_id = ? AND strftime('%m', arrival_datetime) = ? AND strftime('%Y', arrival_datetime) = ?
+        """, (self.current_doctor_id, f"{month:02d}", str(year)))
+        
+        shifts = cursor.fetchall()
+        total_hours = sum(calculate_hours(datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S"), 
+                                          datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")) for shift in shifts)
+
+        # Calculate bonus from interventions
+        cursor.execute("""
+        SELECT i.bonus_amount FROM doctor_interventions di
+        JOIN interventions i ON di.intervention_id = i.id
+        WHERE di.doctor_id = ? AND strftime('%m', di.date) = ? AND strftime('%Y', di.date) = ?
+        """, (self.current_doctor_id, f"{month:02d}", str(year)))
+        
+        interventions = cursor.fetchall()
+        total_bonus = sum(intervention[0] for intervention in interventions)
+
+        base_salary = total_hours * hourly_rate
+        total_salary = base_salary + total_bonus
+        conn.close()
+
+        # Export to CSV
+        import csv
+        from datetime import datetime as dt
+        filename = f"doctor_{self.current_doctor_id}_salary_{year}_{month:02d}.csv"
+        try:
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Doctor Salary Sheet"])
+                writer.writerow([])
+                writer.writerow(["Doctor Name:", doctor_name])
+                writer.writerow(["Period:", f"{month:02d}/{year}"])
+                writer.writerow([])
+                writer.writerow(["Total Hours:", f"{total_hours:.2f}"])
+                writer.writerow(["Hourly Rate:", format_currency(hourly_rate)])
+                writer.writerow(["Base Salary:", format_currency(base_salary)])
+                writer.writerow(["Bonus from Interventions:", format_currency(total_bonus)])
+                writer.writerow(["Total Salary:", format_currency(total_salary)])
+            
+            messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
+        except Exception as e:
+             messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")

@@ -720,5 +720,101 @@ Total Cost: {format_currency(total_cost)}
             messagebox.showwarning("Warning", "Please select a patient first")
             return
         
-        # In a real implementation, this would generate an Excel/CSV file
-        messagebox.showinfo("Export", "Cost sheet exported successfully!\n(In a real implementation, this would create an Excel file)")
+        # Get patient info
+        conn = sqlite3.connect("db/patients.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT name, icu_type, admission_date, discharge_date 
+        FROM patients WHERE id = ?
+        """, (self.current_patient_id,))
+        patient = cursor.fetchone()
+        if not patient:
+            conn.close()
+            return
+        name, icu_type, admission_date, discharge_date = patient
+
+        # Calculate ICU days
+        from datetime import datetime
+        admission = datetime.strptime(admission_date, "%Y-%m-%d")
+        if discharge_date:
+            discharge = datetime.strptime(discharge_date, "%Y-%m-%d")
+        else:
+            discharge = datetime.now()
+        icu_days = (discharge - admission).days
+        if icu_days < 0:
+            icu_days = 0
+
+        # Get package rate
+        cursor.execute("""
+        SELECT daily_rate FROM packages WHERE icu_type = ?
+        """, (icu_type,))
+        package_result = cursor.fetchone()
+        daily_rate = package_result[0] if package_result else 0.0
+        icu_cost = icu_days * daily_rate
+
+        # Calculate category costs
+        categories = ["labs", "drugs", "radiology", "consultations"]
+        category_costs = {}
+        total_category_cost = 0.0
+        category_details = {}
+        for category in categories:
+            cursor.execute(f"""
+            SELECT SUM(p.quantity * i.price)
+            FROM patient_{category} p
+            JOIN items i ON p.item_id = i.id
+            WHERE p.patient_id = ?
+            """, (self.current_patient_id,))
+            cost_result = cursor.fetchone()[0]
+            category_cost = cost_result if cost_result else 0.0
+            category_costs[category] = category_cost
+            total_category_cost += category_cost
+
+            # Get details for CSV
+            cursor.execute(f"""
+            SELECT p.date, i.name, p.quantity, i.price
+            FROM patient_{category} p
+            JOIN items i ON p.item_id = i.id
+            WHERE p.patient_id = ?
+            ORDER BY p.date
+            """, (self.current_patient_id,))
+            category_details[category] = cursor.fetchall()
+
+        conn.close()
+
+        # Calculate total cost
+        total_cost = icu_cost + total_category_cost
+
+        # Export to CSV
+        import csv
+        from datetime import datetime as dt
+        filename = f"patient_{self.current_patient_id}_cost_sheet_{dt.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        try:
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Patient Cost Sheet"])
+                writer.writerow([])
+                writer.writerow(["Patient Name:", name])
+                writer.writerow(["ICU Type:", icu_type])
+                writer.writerow(["Admission Date:", admission_date])
+                writer.writerow(["Discharge Date:", discharge_date or 'N/A'])
+                writer.writerow([])
+                writer.writerow(["Cost Breakdown:"])
+                writer.writerow(["ICU Days:", icu_days])
+                writer.writerow(["Daily Rate:", format_currency(daily_rate)])
+                writer.writerow(["ICU Cost:", format_currency(icu_cost)])
+                writer.writerow([])
+                for category in categories:
+                    writer.writerow([f"{category.capitalize()}:", format_currency(category_costs[category])])
+                    # Add itemized details
+                    if category_details[category]:
+                        writer.writerow([f"  Date", "Item", "Quantity", "Price", "Total"])
+                        for item in category_details[category]:
+                            date, item_name, qty, price = item
+                            total = qty * price
+                            writer.writerow([f"  {date}", item_name, qty, format_currency(price), format_currency(total)])
+                    writer.writerow([]) # Empty row after category
+                writer.writerow(["Total Cost:", format_currency(total_cost)])
+            
+            messagebox.showinfo("Export Success", f"Cost sheet exported to {filename}")
+        except Exception as e:
+             messagebox.showerror("Export Error", f"Failed to export cost sheet: {e}")

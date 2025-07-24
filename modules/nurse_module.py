@@ -526,5 +526,59 @@ Total Salary: {format_currency(total_salary)}
             messagebox.showerror("Error", "Please enter valid month and year")
             return
         
-        # In a real implementation, this would generate an Excel/CSV file
-        messagebox.showinfo("Export", "Salary sheet exported successfully!\n(In a real implementation, this would create an Excel file)")
+        # Get nurse info
+        conn = sqlite3.connect("db/nurses.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, level, hourly_rate FROM nurses WHERE id = ?", (self.current_nurse_id,))
+        nurse = cursor.fetchone()
+        if not nurse:
+            conn.close()
+            return
+        nurse_name, level, hourly_rate = nurse
+
+        # Calculate total hours
+        cursor.execute("""
+        SELECT arrival_datetime, leave_datetime FROM nurse_shifts 
+        WHERE nurse_id = ? AND strftime('%m', arrival_datetime) = ? AND strftime('%Y', arrival_datetime) = ?
+        """, (self.current_nurse_id, f"{month:02d}", str(year)))
+        
+        shifts = cursor.fetchall()
+        total_hours = sum(calculate_hours(datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S"), 
+                                          datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")) for shift in shifts)
+
+        # Calculate bonus from interventions
+        cursor.execute("""
+        SELECT i.bonus_amount FROM nurse_interventions ni
+        JOIN interventions i ON ni.intervention_id = i.id
+        WHERE ni.nurse_id = ? AND strftime('%m', ni.date) = ? AND strftime('%Y', ni.date) = ?
+        """, (self.current_nurse_id, f"{month:02d}", str(year)))
+        
+        interventions = cursor.fetchall()
+        total_bonus = sum(intervention[0] for intervention in interventions)
+
+        base_salary = total_hours * hourly_rate
+        total_salary = base_salary + total_bonus
+        conn.close()
+
+         # Export to CSV
+        import csv
+        from datetime import datetime as dt
+        filename = f"nurse_{self.current_nurse_id}_salary_{year}_{month:02d}.csv"
+        try:
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Nurse Salary Sheet"])
+                writer.writerow([])
+                writer.writerow(["Nurse Name:", nurse_name])
+                writer.writerow(["Level:", level])
+                writer.writerow(["Period:", f"{month:02d}/{year}"])
+                writer.writerow([])
+                writer.writerow(["Total Hours:", f"{total_hours:.2f}"])
+                writer.writerow(["Hourly Rate:", format_currency(hourly_rate)])
+                writer.writerow(["Base Salary:", format_currency(base_salary)])
+                writer.writerow(["Bonus from Interventions:", format_currency(total_bonus)])
+                writer.writerow(["Total Salary:", format_currency(total_salary)])
+            
+            messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
+        except Exception as e:
+             messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")
