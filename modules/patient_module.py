@@ -634,22 +634,22 @@ class PatientModule:
         if not hasattr(self, 'current_patient_id'):
             messagebox.showwarning("Warning", "Please select a patient first")
             return
-        
+
         # Get patient info
-        conn = sqlite3.connect("db/patients.db")
-        cursor = conn.cursor()
-        cursor.execute("""
+        conn_patients = sqlite3.connect("db/patients.db")
+        cursor_patients = conn_patients.cursor()
+        cursor_patients.execute("""
             SELECT name, icu_type, admission_date, discharge_date
             FROM patients WHERE id = ?
         """, (self.current_patient_id,))
-        patient = cursor.fetchone()
-        
+        patient = cursor_patients.fetchone()
+
         if not patient:
-            conn.close()
+            conn_patients.close()
             return
-        
+
         name, icu_type, admission_date, discharge_date = patient
-        
+
         # Calculate ICU days
         from datetime import datetime
         admission = datetime.strptime(admission_date, "%Y-%m-%d")
@@ -657,43 +657,54 @@ class PatientModule:
             discharge = datetime.strptime(discharge_date, "%Y-%m-%d")
         else:
             discharge = datetime.now()
-        
+
         icu_days = (discharge - admission).days
         if icu_days < 0:
             icu_days = 0
-        
-        # Get package rate
-        cursor.execute("""
+
+        # Get package rate from items.db
+        conn_items = sqlite3.connect("db/items.db")
+        cursor_items = conn_items.cursor()
+        cursor_items.execute("""
             SELECT daily_rate FROM packages WHERE icu_type = ?
         """, (icu_type,))
-        package_result = cursor.fetchone()
+        package_result = cursor_items.fetchone()
         daily_rate = package_result[0] if package_result else 0.0
+        conn_items.close()
         
         icu_cost = icu_days * daily_rate
-        
+
         # Calculate category costs
         categories = ["labs", "drugs", "radiology", "consultations"]
         category_costs = {}
         total_category_cost = 0.0
-        
+
         for category in categories:
-            cursor.execute(f"""
-                SELECT SUM(p.quantity * i.price)
-                FROM patient_{category} p
-                JOIN items i ON p.item_id = i.id
-                WHERE p.patient_id = ?
+            cursor_patients.execute(f"""
+                SELECT item_id, quantity FROM patient_{category}
+                WHERE patient_id = ?
             """, (self.current_patient_id,))
-            
-            cost_result = cursor.fetchone()[0]
-            category_cost = cost_result if cost_result else 0.0
+            items = cursor_patients.fetchall()
+
+            category_cost = 0.0
+            if items:
+                conn_items = sqlite3.connect("db/items.db")
+                cursor_items = conn_items.cursor()
+                for item_id, quantity in items:
+                    cursor_items.execute("SELECT price FROM items WHERE id = ?", (item_id,))
+                    price_result = cursor_items.fetchone()
+                    if price_result:
+                        category_cost += quantity * price_result[0]
+                conn_items.close()
+
             category_costs[category] = category_cost
             total_category_cost += category_cost
-        
-        conn.close()
-        
+
+        conn_patients.close()
+
         # Calculate total cost
         total_cost = icu_cost + total_category_cost
-        
+
         # Show results
         result_text = f"""
 Patient: {name}
@@ -711,7 +722,7 @@ Consultations: {format_currency(category_costs['consultations'])}
 
 Total Cost: {format_currency(total_cost)}
         """
-        
+
         messagebox.showinfo("Cost Calculation", result_text)
     
     def export_cost_sheet(self):
@@ -719,17 +730,17 @@ Total Cost: {format_currency(total_cost)}
         if not hasattr(self, 'current_patient_id'):
             messagebox.showwarning("Warning", "Please select a patient first")
             return
-        
+
         # Get patient info
-        conn = sqlite3.connect("db/patients.db")
-        cursor = conn.cursor()
-        cursor.execute("""
+        conn_patients = sqlite3.connect("db/patients.db")
+        cursor_patients = conn_patients.cursor()
+        cursor_patients.execute("""
         SELECT name, icu_type, admission_date, discharge_date 
         FROM patients WHERE id = ?
         """, (self.current_patient_id,))
-        patient = cursor.fetchone()
+        patient = cursor_patients.fetchone()
         if not patient:
-            conn.close()
+            conn_patients.close()
             return
         name, icu_type, admission_date, discharge_date = patient
 
@@ -744,11 +755,13 @@ Total Cost: {format_currency(total_cost)}
         if icu_days < 0:
             icu_days = 0
 
-        # Get package rate
-        cursor.execute("""
+        # Get package rate from items.db
+        conn_items = sqlite3.connect("db/items.db")
+        cursor_items = conn_items.cursor()
+        cursor_items.execute("""
         SELECT daily_rate FROM packages WHERE icu_type = ?
         """, (icu_type,))
-        package_result = cursor.fetchone()
+        package_result = cursor_items.fetchone()
         daily_rate = package_result[0] if package_result else 0.0
         icu_cost = icu_days * daily_rate
 
@@ -758,28 +771,31 @@ Total Cost: {format_currency(total_cost)}
         total_category_cost = 0.0
         category_details = {}
         for category in categories:
-            cursor.execute(f"""
-            SELECT SUM(p.quantity * i.price)
-            FROM patient_{category} p
-            JOIN items i ON p.item_id = i.id
-            WHERE p.patient_id = ?
+            cursor_patients.execute(f"""
+                SELECT item_id, quantity, date FROM patient_{category}
+                WHERE patient_id = ?
+                ORDER BY date
             """, (self.current_patient_id,))
-            cost_result = cursor.fetchone()[0]
-            category_cost = cost_result if cost_result else 0.0
+            items = cursor_patients.fetchall()
+
+            category_cost = 0.0
+            details = []
+            if items:
+                for item_id, quantity, date in items:
+                    cursor_items.execute("SELECT name, price FROM items WHERE id = ?", (item_id,))
+                    item_result = cursor_items.fetchone()
+                    if item_result:
+                        item_name, price = item_result
+                        total = quantity * price
+                        category_cost += total
+                        details.append((date, item_name, quantity, price, total))
+
             category_costs[category] = category_cost
+            category_details[category] = details
             total_category_cost += category_cost
 
-            # Get details for CSV
-            cursor.execute(f"""
-            SELECT p.date, i.name, p.quantity, i.price
-            FROM patient_{category} p
-            JOIN items i ON p.item_id = i.id
-            WHERE p.patient_id = ?
-            ORDER BY p.date
-            """, (self.current_patient_id,))
-            category_details[category] = cursor.fetchall()
-
-        conn.close()
+        conn_items.close()
+        conn_patients.close()
 
         # Calculate total cost
         total_cost = icu_cost + total_category_cost
@@ -809,12 +825,11 @@ Total Cost: {format_currency(total_cost)}
                     if category_details[category]:
                         writer.writerow([f"  Date", "Item", "Quantity", "Price", "Total"])
                         for item in category_details[category]:
-                            date, item_name, qty, price = item
-                            total = qty * price
+                            date, item_name, qty, price, total = item
                             writer.writerow([f"  {date}", item_name, qty, format_currency(price), format_currency(total)])
                     writer.writerow([]) # Empty row after category
                 writer.writerow(["Total Cost:", format_currency(total_cost)])
-            
+
             messagebox.showinfo("Export Success", f"Cost sheet exported to {filename}")
         except Exception as e:
-             messagebox.showerror("Export Error", f"Failed to export cost sheet: {e}")
+            messagebox.showerror("Export Error", f"Failed to export cost sheet: {e}")
