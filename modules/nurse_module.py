@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
-from .utils import calculate_hours, format_currency
+from .utils import calculate_hours, format_currency, calculate_salary_details, export_to_pdf
 
 class NurseModule:
     def __init__(self, parent):
@@ -117,7 +117,8 @@ class NurseModule:
         ttk.Entry(salary_frame, textvariable=self.year_var, width=8).grid(row=0, column=3, sticky=tk.W, pady=2, padx=(5, 0))
         
         ttk.Button(salary_frame, text="Calculate Salary", command=self.calculate_salary).grid(row=1, column=0, columnspan=2, pady=5)
-        ttk.Button(salary_frame, text="Export Salary Sheet", command=self.export_salary_sheet).grid(row=1, column=2, columnspan=2, pady=5)
+        ttk.Button(salary_frame, text="Export as CSV", command=lambda: self.export_salary_sheet('csv')).grid(row=1, column=2, pady=5)
+        ttk.Button(salary_frame, text="Export as PDF", command=lambda: self.export_salary_sheet('pdf')).grid(row=1, column=3, pady=5)
         
         # Configure grid weights
         details_frame.columnconfigure(1, weight=1)
@@ -446,139 +447,92 @@ class NurseModule:
         if not hasattr(self, 'current_nurse_id'):
             messagebox.showwarning("Warning", "Please select a nurse first")
             return
-        
+
         try:
             month = int(self.month_var.get())
             year = int(self.year_var.get())
         except ValueError:
             messagebox.showerror("Error", "Please enter valid month and year")
             return
-        
-        # Get nurse info
-        conn = sqlite3.connect("db/nurses.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT name, level, hourly_rate FROM nurses WHERE id = ?", (self.current_nurse_id,))
-        nurse = cursor.fetchone()
-        
-        if not nurse:
-            conn.close()
+
+        salary_details = calculate_salary_details("nurse", self.current_nurse_id, month, year)
+
+        if not salary_details:
+            messagebox.showerror("Error", "Could not calculate salary.")
             return
-        
-        nurse_name, level, hourly_rate = nurse
-        
-        # Calculate total hours
-        cursor.execute("""
-            SELECT arrival_datetime, leave_datetime FROM nurse_shifts
-            WHERE nurse_id = ? AND
-                  strftime('%m', arrival_datetime) = ? AND
-                  strftime('%Y', arrival_datetime) = ?
-        """, (self.current_nurse_id, f"{month:02d}", str(year)))
-        
-        shifts = cursor.fetchall()
-        total_hours = 0.0
-        for shift in shifts:
-            arrival_datetime = datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S")
-            leave_datetime = datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")
-            total_hours += calculate_hours(arrival_datetime, leave_datetime)
-        
-        # Calculate total bonus from interventions
-        cursor.execute("""
-            SELECT SUM(i.bonus_amount) 
-            FROM nurse_interventions ni
-            JOIN interventions i ON ni.intervention_id = i.id
-            WHERE ni.nurse_id = ? AND strftime('%m', ni.date) = ? AND strftime('%Y', ni.date) = ?
-        """, (self.current_nurse_id, f"{month:02d}", str(year)))
-        
-        total_bonus_result = cursor.fetchone()[0]
-        total_bonus = total_bonus_result if total_bonus_result else 0.0
-        
-        # Calculate total salary
-        base_salary = total_hours * hourly_rate
-        total_salary = base_salary + total_bonus
-        
-        conn.close()
-        
+
         # Show results
         result_text = f"""
-Nurse: {nurse_name} ({level})
+Nurse: {salary_details['name']}
 Period: {month:02d}/{year}
 
-Total Hours: {total_hours:.2f}
-Hourly Rate: {format_currency(hourly_rate)}
-Base Salary: {format_currency(base_salary)}
+Total Hours: {salary_details['total_hours']:.2f}
+Hourly Rate: {format_currency(salary_details['hourly_rate'])}
+Base Salary: {format_currency(salary_details['base_salary'])}
 
-Bonus from Interventions: {format_currency(total_bonus)}
-Total Salary: {format_currency(total_salary)}
+Bonus from Interventions: {format_currency(salary_details['total_bonus'])}
+Total Salary: {format_currency(salary_details['total_salary'])}
         """
-        
+
         messagebox.showinfo("Salary Calculation", result_text)
     
-    def export_salary_sheet(self):
+    def export_salary_sheet(self, export_format):
         """Export salary sheet for selected nurse"""
         if not hasattr(self, 'current_nurse_id'):
             messagebox.showwarning("Warning", "Please select a nurse first")
             return
-        
+
         try:
             month = int(self.month_var.get())
             year = int(self.year_var.get())
         except ValueError:
             messagebox.showerror("Error", "Please enter valid month and year")
             return
-        
-        # Get nurse info
-        conn = sqlite3.connect("db/nurses.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT name, level, hourly_rate FROM nurses WHERE id = ?", (self.current_nurse_id,))
-        nurse = cursor.fetchone()
-        if not nurse:
-            conn.close()
+
+        salary_details = calculate_salary_details("nurse", self.current_nurse_id, month, year)
+
+        if not salary_details:
+            messagebox.showerror("Error", "Could not export salary sheet.")
             return
-        nurse_name, level, hourly_rate = nurse
 
-        # Calculate total hours
-        cursor.execute("""
-        SELECT arrival_datetime, leave_datetime FROM nurse_shifts 
-        WHERE nurse_id = ? AND strftime('%m', arrival_datetime) = ? AND strftime('%Y', arrival_datetime) = ?
-        """, (self.current_nurse_id, f"{month:02d}", str(year)))
-        
-        shifts = cursor.fetchall()
-        total_hours = sum(calculate_hours(datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S"), 
-                                          datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")) for shift in shifts)
+        filename = f"nurse_{self.current_nurse_id}_salary_{year}_{month:02d}.{export_format}"
 
-        # Calculate bonus from interventions
-        cursor.execute("""
-        SELECT i.bonus_amount FROM nurse_interventions ni
-        JOIN interventions i ON ni.intervention_id = i.id
-        WHERE ni.nurse_id = ? AND strftime('%m', ni.date) = ? AND strftime('%Y', ni.date) = ?
-        """, (self.current_nurse_id, f"{month:02d}", str(year)))
-        
-        interventions = cursor.fetchall()
-        total_bonus = sum(intervention[0] for intervention in interventions)
+        if export_format == 'csv':
+            # Export to CSV
+            import csv
+            try:
+                with open(filename, 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(["Nurse Salary Sheet"])
+                    writer.writerow([])
+                    writer.writerow(["Nurse Name:", salary_details['name']])
+                    writer.writerow(["Period:", f"{month:02d}/{year}"])
+                    writer.writerow([])
+                    writer.writerow(["Total Hours:", f"{salary_details['total_hours']:.2f}"])
+                    writer.writerow(["Hourly Rate:", format_currency(salary_details['hourly_rate'])])
+                    writer.writerow(["Base Salary:", format_currency(salary_details['base_salary'])])
+                    writer.writerow(["Bonus from Interventions:", format_currency(salary_details['total_bonus'])])
+                    writer.writerow(["Total Salary:", format_currency(salary_details['total_salary'])])
 
-        base_salary = total_hours * hourly_rate
-        total_salary = base_salary + total_bonus
-        conn.close()
-
-         # Export to CSV
-        import csv
-        from datetime import datetime as dt
-        filename = f"nurse_{self.current_nurse_id}_salary_{year}_{month:02d}.csv"
-        try:
-            with open(filename, 'w', newline='') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(["Nurse Salary Sheet"])
-                writer.writerow([])
-                writer.writerow(["Nurse Name:", nurse_name])
-                writer.writerow(["Level:", level])
-                writer.writerow(["Period:", f"{month:02d}/{year}"])
-                writer.writerow([])
-                writer.writerow(["Total Hours:", f"{total_hours:.2f}"])
-                writer.writerow(["Hourly Rate:", format_currency(hourly_rate)])
-                writer.writerow(["Base Salary:", format_currency(base_salary)])
-                writer.writerow(["Bonus from Interventions:", format_currency(total_bonus)])
-                writer.writerow(["Total Salary:", format_currency(total_salary)])
-            
-            messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
-        except Exception as e:
-             messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")
+                messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")
+        elif export_format == 'pdf':
+            # Export to PDF
+            data = [
+                "Nurse Salary Sheet",
+                "",
+                f"Nurse Name: {salary_details['name']}",
+                f"Period: {month:02d}/{year}",
+                "",
+                f"Total Hours: {salary_details['total_hours']:.2f}",
+                f"Hourly Rate: {format_currency(salary_details['hourly_rate'])}",
+                f"Base Salary: {format_currency(salary_details['base_salary'])}",
+                f"Bonus from Interventions: {format_currency(salary_details['total_bonus'])}",
+                f"Total Salary: {format_currency(salary_details['total_salary'])}",
+            ]
+            try:
+                export_to_pdf(filename, data)
+                messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")

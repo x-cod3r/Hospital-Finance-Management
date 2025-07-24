@@ -358,3 +358,72 @@ def calculate_hours(arrival_datetime, leave_datetime):
 def format_currency(amount):
     """Format amount as currency"""
     return f"${amount:,.2f}"
+
+def calculate_salary_details(employee_type, employee_id, month, year):
+    """Calculate salary details for a given employee"""
+    db_name = f"db/{employee_type}s.db"
+
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    # Get employee info
+    cursor.execute(f"SELECT name, hourly_rate FROM {employee_type}s WHERE id = ?", (employee_id,))
+    employee = cursor.fetchone()
+    if not employee:
+        conn.close()
+        return None
+
+    name, hourly_rate = employee
+
+    # Calculate total hours
+    cursor.execute(f"""
+        SELECT arrival_datetime, leave_datetime FROM {employee_type}_shifts
+        WHERE {employee_type}_id = ? AND
+              strftime('%m', arrival_datetime) = ? AND
+              strftime('%Y', arrival_datetime) = ?
+    """, (employee_id, f"{month:02d}", str(year)))
+
+    shifts = cursor.fetchall()
+    total_hours = sum(calculate_hours(datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S"),
+                                      datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")) for shift in shifts)
+
+    # Calculate total bonus from interventions
+    cursor.execute(f"""
+        SELECT SUM(i.bonus_amount)
+        FROM {employee_type}_interventions di
+        JOIN interventions i ON di.intervention_id = i.id
+        WHERE di.{employee_type}_id = ? AND strftime('%m', di.date) = ? AND strftime('%Y', di.date) = ?
+    """, (employee_id, f"{month:02d}", str(year)))
+
+    total_bonus_result = cursor.fetchone()[0]
+    total_bonus = total_bonus_result if total_bonus_result else 0.0
+
+    # Calculate total salary
+    base_salary = total_hours * hourly_rate
+    total_salary = base_salary + total_bonus
+
+    conn.close()
+
+    return {
+        "name": name,
+        "hourly_rate": hourly_rate,
+        "total_hours": total_hours,
+        "base_salary": base_salary,
+        "total_bonus": total_bonus,
+        "total_salary": total_salary,
+    }
+
+def export_to_pdf(filename, data):
+    """Export data to a PDF file"""
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter
+
+    c = canvas.Canvas(filename, pagesize=letter)
+    width, height = letter
+
+    text = c.beginText(40, height - 40)
+    for line in data:
+        text.textLine(line)
+
+    c.drawText(text)
+    c.save()

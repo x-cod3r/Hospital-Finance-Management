@@ -5,9 +5,10 @@ from datetime import datetime, timedelta
 from .utils import format_currency
 
 class CompanyModule:
-    def __init__(self, parent):
+    def __init__(self, parent, setup_ui=True):
         self.parent = parent
-        self.setup_ui()
+        if setup_ui:
+            self.setup_ui()
     
     def setup_ui(self):
         # Main frame
@@ -144,48 +145,53 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
         """Calculate total doctor costs"""
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
-        
+
         # Get all doctors
         cursor.execute("SELECT id, name, hourly_rate FROM doctors")
         doctors = cursor.fetchall()
-        
+
         total_cost = 0.0
         doctor_details = []
-        
+
         for doctor in doctors:
             doctor_id, name, hourly_rate = doctor
-            
+
             # Calculate total hours
             cursor.execute("""
-                SELECT SUM(hours_worked) FROM doctor_shifts 
-                WHERE doctor_id = ? AND date BETWEEN ? AND ?
+                SELECT arrival_datetime, leave_datetime FROM doctor_shifts
+                WHERE doctor_id = ? AND
+                      date(arrival_datetime) BETWEEN ? AND ?
             """, (doctor_id, from_date, to_date))
-            
-            hours_result = cursor.fetchone()[0]
-            total_hours = hours_result if hours_result else 0.0
-            
+
+            shifts = cursor.fetchall()
+            total_hours = 0.0
+            for shift in shifts:
+                arrival_datetime = datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S")
+                leave_datetime = datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")
+                total_hours += (leave_datetime - arrival_datetime).total_seconds() / 3600
+
             # Calculate total bonus
             cursor.execute("""
-                SELECT SUM(i.bonus_amount) 
+                SELECT SUM(i.bonus_amount)
                 FROM doctor_interventions di
                 JOIN interventions i ON di.intervention_id = i.id
                 WHERE di.doctor_id = ? AND di.date BETWEEN ? AND ?
             """, (doctor_id, from_date, to_date))
-            
+
             bonus_result = cursor.fetchone()[0]
             total_bonus = bonus_result if bonus_result else 0.0
-            
+
             # Calculate total cost
             doctor_cost = (total_hours * hourly_rate) + total_bonus
             total_cost += doctor_cost
-            
+
             doctor_details.append({
                 'name': name,
                 'cost': doctor_cost
             })
-        
+
         conn.close()
-        
+
         return {
             'total': total_cost,
             'details': doctor_details
@@ -195,49 +201,54 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
         """Calculate total nurse costs"""
         conn = sqlite3.connect("db/nurses.db")
         cursor = conn.cursor()
-        
+
         # Get all nurses
         cursor.execute("SELECT id, name, level, hourly_rate FROM nurses")
         nurses = cursor.fetchall()
-        
+
         total_cost = 0.0
         nurse_details = []
-        
+
         for nurse in nurses:
             nurse_id, name, level, hourly_rate = nurse
-            
+
             # Calculate total hours
             cursor.execute("""
-                SELECT SUM(hours_worked) FROM nurse_shifts 
-                WHERE nurse_id = ? AND date BETWEEN ? AND ?
+                SELECT arrival_datetime, leave_datetime FROM nurse_shifts
+                WHERE nurse_id = ? AND
+                      date(arrival_datetime) BETWEEN ? AND ?
             """, (nurse_id, from_date, to_date))
-            
-            hours_result = cursor.fetchone()[0]
-            total_hours = hours_result if hours_result else 0.0
-            
+
+            shifts = cursor.fetchall()
+            total_hours = 0.0
+            for shift in shifts:
+                arrival_datetime = datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S")
+                leave_datetime = datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")
+                total_hours += (leave_datetime - arrival_datetime).total_seconds() / 3600
+
             # Calculate total bonus
             cursor.execute("""
-                SELECT SUM(i.bonus_amount) 
+                SELECT SUM(i.bonus_amount)
                 FROM nurse_interventions ni
                 JOIN interventions i ON ni.intervention_id = i.id
                 WHERE ni.nurse_id = ? AND ni.date BETWEEN ? AND ?
             """, (nurse_id, from_date, to_date))
-            
+
             bonus_result = cursor.fetchone()[0]
             total_bonus = bonus_result if bonus_result else 0.0
-            
+
             # Calculate total cost
             nurse_cost = (total_hours * hourly_rate) + total_bonus
             total_cost += nurse_cost
-            
+
             nurse_details.append({
                 'name': name,
                 'level': level,
                 'cost': nurse_cost
             })
-        
+
         conn.close()
-        
+
         return {
             'total': total_cost,
             'details': nurse_details
