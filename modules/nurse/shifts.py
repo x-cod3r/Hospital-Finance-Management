@@ -8,6 +8,20 @@ class ShiftsHandler:
     def __init__(self, nurse_module):
         self.nurse_module = nurse_module
         self.parent = nurse_module.parent
+        self.nurse_levels = self.get_nurse_levels()
+
+    def get_nurse_levels(self):
+        """Fetch nurse levels from the database"""
+        try:
+            conn = sqlite3.connect("db/nurses.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, level_name, hourly_rate FROM nurse_levels")
+            levels = {f"{name} ({rate}/hr)": id for id, name, rate in cursor.fetchall()}
+            conn.close()
+            return levels
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Failed to fetch nurse levels: {e}")
+            return {}
 
     def check_shift_overlap(self, nurse_id, arrival_datetime, leave_datetime):
         """Check for overlapping shifts"""
@@ -34,14 +48,14 @@ class ShiftsHandler:
 
         try:
             arrival_date_str = self.nurse_module.arrival_date_var.get().strip()
-            arrival_time_str = self.nurse_module.arrival_time_var.get().strip()
+            arrival_time_str = self.nurse_module.arrival_time_var.get().strip() or "09:00"
             arrival_ampm = self.nurse_module.arrival_ampm_var.get()
 
             leave_date_str = self.nurse_module.leave_date_var.get().strip()
             leave_time_str = self.nurse_module.leave_time_var.get().strip()
             leave_ampm = self.nurse_module.leave_ampm_var.get()
 
-            if not all([arrival_date_str, arrival_time_str, leave_date_str, leave_time_str]):
+            if not all([arrival_date_str, leave_date_str, leave_time_str]):
                 messagebox.showerror("Error", "Please fill in all shift details")
                 return
 
@@ -57,6 +71,12 @@ class ShiftsHandler:
                 return
             patient_id = int(patient_text.split(":")[0])
 
+            level_text = self.nurse_module.nurse_level_var.get()
+            if not level_text:
+                messagebox.showerror("Error", "Please select a nurse level")
+                return
+            nurse_level_id = self.nurse_levels.get(level_text)
+
             hours = calculate_hours(arrival_datetime, leave_datetime)
             
             conn = sqlite3.connect("db/nurses.db")
@@ -71,9 +91,9 @@ class ShiftsHandler:
                     continue
 
                 cursor.execute("""
-                    INSERT INTO nurse_shifts (nurse_id, patient_id, arrival_datetime, leave_datetime)
-                    VALUES (?, ?, ?, ?)
-                """, (nurse_id, patient_id, arrival_datetime, leave_datetime))
+                    INSERT INTO nurse_shifts (nurse_id, patient_id, arrival_datetime, leave_datetime, nurse_level_id)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (nurse_id, patient_id, arrival_datetime, leave_datetime, nurse_level_id))
                 success_count += 1
             
             conn.commit()
@@ -88,3 +108,30 @@ class ShiftsHandler:
             messagebox.showerror("Error", "Invalid date or time format. Please use YYYY-MM-DD and HH:MM.")
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to add shift: {e}")
+
+    def remove_shift(self):
+        """Remove selected shift"""
+        selected_items = self.nurse_module.tree.selection()
+        if not selected_items:
+            messagebox.showwarning("Warning", "Please select a shift to remove")
+            return
+
+        if not messagebox.askyesno("Confirm", "Are you sure you want to remove the selected shift(s)?"):
+            return
+
+        try:
+            conn = sqlite3.connect("db/nurses.db")
+            cursor = conn.cursor()
+            
+            for item in selected_items:
+                shift_id = self.nurse_module.tree.item(item, "values")[0]
+                cursor.execute("DELETE FROM nurse_shifts WHERE id = ?", (shift_id,))
+            
+            conn.commit()
+            conn.close()
+            
+            self.nurse_module.crud_handler.view_nurses() # Refresh view
+            messagebox.showinfo("Success", "Shift(s) removed successfully")
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Failed to remove shift: {e}")

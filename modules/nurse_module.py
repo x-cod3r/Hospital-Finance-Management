@@ -108,7 +108,16 @@ class NurseModule:
         self.shift_patient_combo.grid(row=4, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
         ttk.Label(shift_frame, text="Patient:").grid(row=4, column=0, sticky=tk.W, pady=2)
 
-        ttk.Button(shift_frame, text="Add Shift", command=self.shifts_handler.add_shift).grid(row=5, column=0, columnspan=4, pady=5)
+        self.nurse_level_var = tk.StringVar()
+        self.nurse_level_combo = ttk.Combobox(shift_frame, textvariable=self.nurse_level_var, state="readonly")
+        self.nurse_level_combo['values'] = list(self.shifts_handler.nurse_levels.keys())
+        self.nurse_level_combo.grid(row=5, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+        ttk.Label(shift_frame, text="Nurse Level:").grid(row=5, column=0, sticky=tk.W, pady=2)
+
+        button_frame = ttk.Frame(shift_frame)
+        button_frame.grid(row=6, column=0, columnspan=4, pady=5)
+        ttk.Button(button_frame, text="Add Shift", command=self.shifts_handler.add_shift).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=2)
+        ttk.Button(button_frame, text="Remove Shift", command=self.shifts_handler.remove_shift).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=2)
         
         interventions_frame = ttk.LabelFrame(details_frame, text="Interventions", padding="5")
         interventions_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)

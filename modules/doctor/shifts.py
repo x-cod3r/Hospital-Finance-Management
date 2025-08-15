@@ -88,3 +88,30 @@ class ShiftsHandler:
             messagebox.showerror("Error", "Invalid date or time format. Please use YYYY-MM-DD and HH:MM.")
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to add shift: {e}")
+
+    def remove_shift(self):
+        """Remove selected shift"""
+        selected_items = self.doctor_module.tree.selection()
+        if not selected_items:
+            messagebox.showwarning("Warning", "Please select a shift to remove")
+            return
+
+        if not messagebox.askyesno("Confirm", "Are you sure you want to remove the selected shift(s)?"):
+            return
+
+        try:
+            conn = sqlite3.connect("db/doctors.db")
+            cursor = conn.cursor()
+            
+            for item in selected_items:
+                shift_id = self.doctor_module.tree.item(item, "values")[0]
+                cursor.execute("DELETE FROM doctor_shifts WHERE id = ?", (shift_id,))
+            
+            conn.commit()
+            conn.close()
+            
+            self.doctor_module.crud_handler.view_doctors() # Refresh view
+            messagebox.showinfo("Success", "Shift(s) removed successfully")
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Failed to remove shift: {e}")
