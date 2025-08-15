@@ -28,7 +28,7 @@ class NurseCRUD:
         for nurse in nurses:
             nurse_id, nurse_name, nurse_level = nurse
             var = tk.BooleanVar()
-            cb = ttk.Checkbutton(self.nurse_module.scrollable_frame, text=f"{nurse_id}: {nurse_name}", variable=var,
+            cb = ttk.Checkbutton(self.nurse_module.scrollable_frame, text=nurse_name, variable=var,
                                  command=lambda nurse_id=nurse_id: self.on_nurse_select(nurse_id))
             cb.pack(fill='x', padx=5, pady=2)
             self.nurse_module.nurse_vars[nurse_id] = var

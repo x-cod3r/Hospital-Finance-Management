@@ -28,7 +28,7 @@ class DoctorCRUD:
         for doctor in doctors:
             doctor_id, doctor_name = doctor
             var = tk.BooleanVar()
-            cb = ttk.Checkbutton(self.doctor_module.scrollable_frame, text=f"{doctor_id}: {doctor_name}", variable=var,
+            cb = ttk.Checkbutton(self.doctor_module.scrollable_frame, text=doctor_name, variable=var,
                                  command=lambda doc_id=doctor_id: self.on_doctor_select(doc_id))
             cb.pack(fill='x', padx=5, pady=2)
             self.doctor_module.doctor_vars[doctor_id] = var
