@@ -67,11 +67,14 @@ class CompanyModule:
     
     def generate_report(self):
         """Generate company report"""
+        print("Generating report...")
         try:
             from_date = self.from_date_var.get()
             to_date = self.to_date_var.get()
             report_type = self.report_type_var.get()
             
+            print(f"Report parameters: from={from_date}, to={to_date}, type={report_type}")
+
             # Validate dates
             datetime.strptime(from_date, "%Y-%m-%d")
             datetime.strptime(to_date, "%Y-%m-%d")
@@ -100,16 +103,22 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         total_patient_revenue = 0.0
         
         # Get doctor costs
+        print("Calculating doctor costs...")
         doctor_costs = self.calculate_doctor_costs(from_date, to_date)
         total_staff_cost += doctor_costs['total']
+        print(f"Doctor costs calculated: {format_currency(doctor_costs['total'])}")
         
         # Get nurse costs
+        print("Calculating nurse costs...")
         nurse_costs = self.calculate_nurse_costs(from_date, to_date)
         total_staff_cost += nurse_costs['total']
+        print(f"Nurse costs calculated: {format_currency(nurse_costs['total'])}")
         
         # Get patient revenues
+        print("Calculating patient revenues...")
         patient_revenues = self.calculate_patient_revenues(from_date, to_date)
         total_patient_revenue += patient_revenues['total']
+        print(f"Patient revenues calculated: {format_currency(patient_revenues['total'])}")
         
         # Calculate operational costs
         total_operational_cost = total_staff_cost + patient_revenues['operational_cost']
@@ -172,10 +181,11 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
                 total_hours += (leave_datetime - arrival_datetime).total_seconds() / 3600
 
             # Calculate total bonus
+            cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
             cursor.execute("""
                 SELECT SUM(i.bonus_amount)
                 FROM doctor_interventions di
-                JOIN interventions i ON di.intervention_id = i.id
+                JOIN interventions_db.interventions i ON di.intervention_id = i.id
                 WHERE di.doctor_id = ? AND di.date BETWEEN ? AND ?
             """, (doctor_id, from_date, to_date))
 
@@ -228,10 +238,11 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
                 total_hours += (leave_datetime - arrival_datetime).total_seconds() / 3600
 
             # Calculate total bonus
+            cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
             cursor.execute("""
                 SELECT SUM(i.bonus_amount)
                 FROM nurse_interventions ni
-                JOIN interventions i ON ni.intervention_id = i.id
+                JOIN interventions_db.interventions i ON ni.intervention_id = i.id
                 WHERE ni.nurse_id = ? AND ni.date BETWEEN ? AND ?
             """, (nurse_id, from_date, to_date))
 
@@ -273,6 +284,8 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
         patient_details = []
         operational_cost = 0.0  # Placeholder for operational costs
         
+        cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
+
         for patient in patients:
             patient_id, name, icu_type, admission_date, discharge_date = patient
             
@@ -309,7 +322,7 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
                 cursor.execute(f"""
                     SELECT SUM(p.quantity * i.price)
                     FROM patient_{category} p
-                    JOIN items i ON p.item_id = i.id
+                    JOIN items_db.items i ON p.item_id = i.id
                     WHERE p.patient_id = ? AND p.date BETWEEN ? AND ?
                 """, (patient_id, from_date, to_date))
                 
