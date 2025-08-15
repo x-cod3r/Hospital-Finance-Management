@@ -331,8 +331,8 @@ def format_currency(amount):
     """Format amount as currency"""
     return f"${amount:,.2f}"
 
-def calculate_salary_details(employee_type, employee_id, month, year):
-    """Calculate salary details for a given employee"""
+def calculate_salary_details(employee_type, employee_id, start_date, end_date):
+    """Calculate salary details for a given employee within a date range"""
     db_name = f"db/{employee_type}s.db"
     interventions_db_name = "db/interventions.db"
     patients_db_name = "db/patients.db"
@@ -358,9 +358,8 @@ def calculate_salary_details(employee_type, employee_id, month, year):
         FROM {employee_type}_shifts s
         JOIN patients_db.patients p ON s.patient_id = p.id
         WHERE s.{employee_type}_id = ? AND
-              strftime('%m', s.arrival_datetime) = ? AND
-              strftime('%Y', s.arrival_datetime) = ?
-    """, (employee_id, f"{month:02d}", str(year)))
+              DATE(s.arrival_datetime) BETWEEN ? AND ?
+    """, (employee_id, start_date, end_date))
     
     shifts_data = cursor.fetchall()
     
@@ -392,9 +391,8 @@ def calculate_salary_details(employee_type, employee_id, month, year):
         JOIN interventions_db.interventions i ON di.intervention_id = i.id
         JOIN patients_db.patients p ON di.patient_id = p.id
         WHERE di.{employee_type}_id = ? AND
-              strftime('%m', di.date) = ? AND
-              strftime('%Y', di.date) = ?
-    """, (employee_id, f"{month:02d}", str(year)))
+              di.date BETWEEN ? AND ?
+    """, (employee_id, start_date, end_date))
 
     interventions_data = cursor.fetchall()
     

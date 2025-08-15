@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
+from tkcalendar import DateEntry
 from .utils import calculate_hours, format_currency, calculate_salary_details, export_to_pdf
 
 class NurseModule:
@@ -136,16 +137,20 @@ class NurseModule:
         salary_frame = ttk.LabelFrame(details_frame, text="Salary Calculation", padding="5")
         salary_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         
-        ttk.Label(salary_frame, text="Month:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        self.month_var = tk.StringVar()
-        self.month_var.set(datetime.now().strftime("%m"))
-        ttk.Entry(salary_frame, textvariable=self.month_var, width=5).grid(row=0, column=1, sticky=tk.W, pady=2, padx=(5, 0))
+        ttk.Label(salary_frame, text="Start Date:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.start_date_entry = DateEntry(salary_frame, width=12, background='darkblue', foreground='white', borderwidth=2, date_pattern='y-mm-dd')
+        self.start_date_entry.grid(row=0, column=1, sticky=tk.W, pady=2, padx=(5, 0))
         
-        ttk.Label(salary_frame, text="Year:").grid(row=0, column=2, sticky=tk.W, pady=2, padx=(10, 0))
-        self.year_var = tk.StringVar()
-        self.year_var.set(datetime.now().strftime("%Y"))
-        ttk.Entry(salary_frame, textvariable=self.year_var, width=8).grid(row=0, column=3, sticky=tk.W, pady=2, padx=(5, 0))
+        ttk.Label(salary_frame, text="End Date:").grid(row=0, column=2, sticky=tk.W, pady=2, padx=(10, 0))
+        self.end_date_entry = DateEntry(salary_frame, width=12, background='darkblue', foreground='white', borderwidth=2, date_pattern='y-mm-dd')
+        self.end_date_entry.grid(row=0, column=3, sticky=tk.W, pady=2, padx=(5, 0))
         
+        # Set default dates (e.g., last 30 days)
+        today = datetime.now()
+        thirty_days_ago = today - timedelta(days=30)
+        self.start_date_entry.set_date(thirty_days_ago)
+        self.end_date_entry.set_date(today)
+
         ttk.Button(salary_frame, text="Calculate Salary", command=self.calculate_salary).grid(row=1, column=0, columnspan=2, pady=5)
         ttk.Button(salary_frame, text="Export as Excel", command=lambda: self.export_salary_sheet('xlsx')).grid(row=1, column=2, pady=5)
         ttk.Button(salary_frame, text="Export as PDF", command=lambda: self.export_salary_sheet('pdf')).grid(row=1, column=3, pady=5)
@@ -568,25 +573,19 @@ class NurseModule:
             return
         self.current_nurse_id = selected_nurses[0]
 
-        try:
-            month = int(self.month_var.get())
-            year = int(self.year_var.get())
-        except ValueError:
-            messagebox.showerror("Error", "Please enter valid month and year")
-            print("Error: Please enter valid month and year")
-            return
+        start_date = self.start_date_entry.get_date().strftime('%Y-%m-%d')
+        end_date = self.end_date_entry.get_date().strftime('%Y-%m-%d')
 
-        salary_details = calculate_salary_details("nurse", self.current_nurse_id, month, year)
+        salary_details = calculate_salary_details("nurse", self.current_nurse_id, start_date, end_date)
 
         if not salary_details:
             messagebox.showerror("Error", "Could not calculate salary.")
-            print("Error: Could not calculate salary.")
             return
 
         # Show results
         result_text = f"""
 Nurse: {salary_details['name']}
-Period: {month:02d}/{year}
+Period: {start_date} to {end_date}
 
 Total Hours: {salary_details['total_hours']:.2f}
 Hourly Rate: {format_currency(salary_details['hourly_rate'])}
@@ -606,22 +605,16 @@ Total Salary: {format_currency(salary_details['total_salary'])}
             return
         self.current_nurse_id = selected_nurses[0]
 
-        try:
-            month = int(self.month_var.get())
-            year = int(self.year_var.get())
-        except ValueError:
-            messagebox.showerror("Error", "Please enter valid month and year")
-            print("Error: Please enter valid month and year")
-            return
+        start_date = self.start_date_entry.get_date().strftime('%Y-%m-%d')
+        end_date = self.end_date_entry.get_date().strftime('%Y-%m-%d')
 
-        salary_details = calculate_salary_details("nurse", self.current_nurse_id, month, year)
+        salary_details = calculate_salary_details("nurse", self.current_nurse_id, start_date, end_date)
 
         if not salary_details:
             messagebox.showerror("Error", "Could not export salary sheet.")
-            print("Error: Could not export salary sheet.")
             return
 
-        filename = f"{salary_details['name']}_salary_{year}_{month:02d}.{export_format}"
+        filename = f"{salary_details['name']}_salary_{start_date}_to_{end_date}.{export_format}"
 
         if export_format == 'xlsx':
             # Export to Excel
@@ -634,7 +627,7 @@ Total Salary: {format_currency(salary_details['total_salary'])}
                 sheet.append(["Nurse Salary Sheet"])
                 sheet.append([])
                 sheet.append(["Nurse Name:", salary_details['name']])
-                sheet.append(["Period:", f"{month:02d}/{year}"])
+                sheet.append(["Period:", f"{start_date} to {end_date}"])
                 sheet.append([])
                 sheet.append(["Total Hours:", f"{salary_details['total_hours']:.2f}"])
                 sheet.append(["Hourly Rate:", format_currency(salary_details['hourly_rate'])])
@@ -663,7 +656,7 @@ Total Salary: {format_currency(salary_details['total_salary'])}
                 "Nurse Salary Sheet",
                 "",
                 f"Nurse Name: {salary_details['name']}",
-                f"Period: {month:02d}/{year}",
+                f"Period: {start_date} to {end_date}",
                 "",
                 f"Total Hours: {salary_details['total_hours']:.2f}",
                 f"Hourly Rate: {format_currency(salary_details['hourly_rate'])}",
