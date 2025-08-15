@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
+from datetime import datetime, timedelta
 from tkcalendar import DateEntry
 from ..utils import format_currency, show_error_message
 
@@ -20,11 +21,7 @@ class EquipmentHandler:
         self.equipment_combo.pack(side=tk.LEFT)
         self.load_equipment_for_combo()
 
-        ttk.Label(add_frame, text="Start Date:").pack(side=tk.LEFT, padx=(10, 5))
-        self.start_date_entry = DateEntry(add_frame, width=12, background='darkblue', foreground='white', borderwidth=2, date_pattern='y-mm-dd')
-        self.start_date_entry.pack(side=tk.LEFT)
-
-        ttk.Button(add_frame, text="Add Equipment", command=self.add_equipment).pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Button(add_frame, text="Add Equipment for Today", command=self.add_equipment).pack(side=tk.LEFT, padx=(10, 0))
         ttk.Button(add_frame, text="Remove Selected", command=self.remove_equipment).pack(side=tk.LEFT, padx=(5, 0))
 
         self.confirm_button = ttk.Button(add_frame, text="Confirm Stay & Equipment", command=self.confirm_stay_and_equipment)
@@ -61,11 +58,15 @@ class EquipmentHandler:
             messagebox.showwarning("Warning", "Please select at least one patient.")
             return
 
-        start_date = self.start_date_entry.get_date().strftime('%Y-%m-%d')
+        start_date = datetime.now()
+        end_date = start_date + timedelta(days=1)
+        start_date_str = start_date.strftime('%Y-%m-%d')
+        end_date_str = end_date.strftime('%Y-%m-%d')
+
         selected_equipment_text = self.equipment_var.get()
         
-        if not start_date or not selected_equipment_text:
-            show_error_message("Error", "Please select a date and equipment.")
+        if not selected_equipment_text:
+            show_error_message("Error", "Please select equipment.")
             return
 
         equipment_id = None
@@ -84,10 +85,10 @@ class EquipmentHandler:
         cursor = conn.cursor()
         try:
             for patient_id in selected_patients:
-                cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, daily_rental_price) VALUES (?, ?, ?, ?)", 
-                               (patient_id, equipment_id, start_date, daily_price))
+                cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, end_date, daily_rental_price) VALUES (?, ?, ?, ?, ?)", 
+                               (patient_id, equipment_id, start_date_str, end_date_str, daily_price))
             conn.commit()
-            messagebox.showinfo("Success", "Equipment added successfully.")
+            messagebox.showinfo("Success", "Equipment added successfully for a one-day rental.")
             if len(selected_patients) == 1:
                 self.load_patient_equipment()
         except sqlite3.Error as e:
