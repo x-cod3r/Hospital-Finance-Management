@@ -97,40 +97,35 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         
         self.results_text.insert(tk.END, report_header)
         
-        # Calculate operational costs
-        total_operational_cost = 0.0
-        total_staff_cost = 0.0
-        total_patient_revenue = 0.0
-        
-        # Get doctor costs
-        print("Calculating doctor costs...")
-        doctor_costs = self.calculate_doctor_costs(from_date, to_date)
-        total_staff_cost += doctor_costs['total']
-        print(f"Doctor costs calculated: {format_currency(doctor_costs['total'])}")
-        
-        # Get nurse costs
-        print("Calculating nurse costs...")
-        nurse_costs = self.calculate_nurse_costs(from_date, to_date)
-        total_staff_cost += nurse_costs['total']
-        print(f"Nurse costs calculated: {format_currency(nurse_costs['total'])}")
-        
-        # Get patient revenues
-        print("Calculating patient revenues...")
+        # Get patient revenues and pass-through costs
         patient_revenues = self.calculate_patient_revenues(from_date, to_date)
-        total_patient_revenue += patient_revenues['total']
-        print(f"Patient revenues calculated: {format_currency(patient_revenues['total'])}")
+        total_patient_revenue = patient_revenues['total']
+        pass_through_costs = patient_revenues['operational_cost']
+
+        # Get staff costs
+        doctor_costs = self.calculate_doctor_costs(from_date, to_date)
+        nurse_costs = self.calculate_nurse_costs(from_date, to_date)
+        total_staff_cost = doctor_costs['total'] + nurse_costs['total']
+
+        # Calculate total operational costs
+        total_operational_cost = total_staff_cost + pass_through_costs
         
-        # Calculate operational costs
-        total_operational_cost = total_staff_cost + patient_revenues['operational_cost']
-        
+        # Calculate net profit
+        net_profit = total_patient_revenue - total_operational_cost
+
         # Display summary
         summary_text = f"""
 FINANCIAL SUMMARY
 =================
 Total Patient Revenue: {format_currency(total_patient_revenue)}
-Total Staff Costs: {format_currency(total_staff_cost)}
+
+Operational Costs:
+  - Staff Costs: {format_currency(total_staff_cost)}
+  - Pass-Through Costs (Labs, Drugs, etc.): {format_currency(pass_through_costs)}
+-----------------
 Total Operational Costs: {format_currency(total_operational_cost)}
-Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost)}
+
+Net Profit/Loss: {format_currency(net_profit)}
 
 """
         
@@ -155,6 +150,7 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
         """Calculate total doctor costs"""
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
+        cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
 
         # Get all doctors
         cursor.execute("SELECT id, name, hourly_rate FROM doctors")
@@ -181,7 +177,6 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
                 total_hours += (leave_datetime - arrival_datetime).total_seconds() / 3600
 
             # Calculate total bonus
-            cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
             cursor.execute("""
                 SELECT SUM(i.bonus_amount)
                 FROM doctor_interventions di
@@ -212,6 +207,7 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
         """Calculate total nurse costs"""
         conn = sqlite3.connect("db/nurses.db")
         cursor = conn.cursor()
+        cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
 
         # Get all nurses
         cursor.execute("SELECT id, name, level, hourly_rate FROM nurses")
@@ -238,7 +234,6 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
                 total_hours += (leave_datetime - arrival_datetime).total_seconds() / 3600
 
             # Calculate total bonus
-            cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
             cursor.execute("""
                 SELECT SUM(i.bonus_amount)
                 FROM nurse_interventions ni
@@ -267,85 +262,76 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
         }
     
     def calculate_patient_revenues(self, from_date, to_date):
-        """Calculate total patient revenues"""
+        """Calculate total patient revenues and operational costs from patient services."""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
-        
-        # Get all patients admitted during period
-        cursor.execute("""
-            SELECT id, name, icu_type, admission_date, discharge_date
-            FROM patients 
-            WHERE admission_date <= ? AND (discharge_date IS NULL OR discharge_date >= ?)
-        """, (to_date, from_date))
-        
-        patients = cursor.fetchall()
-        
-        total_revenue = 0.0
-        patient_details = []
-        operational_cost = 0.0  # Placeholder for operational costs
-        
         cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
 
-        for patient in patients:
-            patient_id, name, icu_type, admission_date, discharge_date = patient
-            
-            # Calculate ICU days within period
-            from datetime import datetime
-            admission = datetime.strptime(max(admission_date, from_date), "%Y-%m-%d")
-            if discharge_date:
-                discharge = datetime.strptime(min(discharge_date, to_date), "%Y-%m-%d")
-            else:
-                discharge = datetime.strptime(to_date, "%Y-%m-%d")
-            
-            icu_days = (discharge - admission).days + 1
-            if icu_days < 0:
-                icu_days = 0
-            
-            # Get package rate
-            conn_items = sqlite3.connect("db/items.db")
-            cursor_items = conn_items.cursor()
-            cursor_items.execute("""
-                SELECT daily_rate FROM packages WHERE icu_type = ?
-            """, (icu_type,))
-            package_result = cursor_items.fetchone()
-            daily_rate = package_result[0] if package_result else 0.0
-            conn_items.close()
-            
-            icu_cost = icu_days * daily_rate
-            
-            # Calculate category costs
-            categories = ["labs", "drugs", "radiology", "consultations"]
-            category_costs = {}
-            total_category_cost = 0.0
-            
-            for category in categories:
+        cursor.execute("SELECT id, name FROM patients")
+        patients = cursor.fetchall()
+
+        total_revenue = 0.0
+        total_operational_cost = 0.0
+        patient_details = []
+
+        for patient_id, name in patients:
+            # Stay costs
+            cursor.execute("""
+                SELECT SUM(cl.daily_rate) FROM patient_stays ps
+                JOIN items_db.care_levels cl ON ps.care_level_id = cl.id
+                WHERE ps.patient_id = ? AND ps.stay_date BETWEEN ? AND ?
+            """, (patient_id, from_date, to_date))
+            stay_revenue = cursor.fetchone()[0] or 0.0
+
+            # Item costs (labs, drugs, etc.)
+            item_revenue = 0.0
+            for category in ["labs", "drugs", "radiology", "consultations"]:
                 cursor.execute(f"""
-                    SELECT SUM(p.quantity * i.price)
-                    FROM patient_{category} p
+                    SELECT SUM(i.price * p.quantity) FROM patient_{category} p
                     JOIN items_db.items i ON p.item_id = i.id
                     WHERE p.patient_id = ? AND p.date BETWEEN ? AND ?
                 """, (patient_id, from_date, to_date))
+                item_revenue += cursor.fetchone()[0] or 0.0
+
+            # Equipment costs
+            equipment_revenue = 0.0
+            cursor.execute("""
+                SELECT start_date, end_date, daily_rental_price FROM patient_equipment
+                WHERE patient_id = ?
+            """, (patient_id,))
+            for start_date, end_date, daily_price in cursor.fetchall():
+                start = datetime.strptime(start_date, "%Y-%m-%d")
+                end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.strptime(to_date, "%Y-%m-%d")
                 
-                cost_result = cursor.fetchone()[0]
-                category_cost = cost_result if cost_result else 0.0
-                category_costs[category] = category_cost
-                total_category_cost += category_cost
+                period_start = datetime.strptime(from_date, "%Y-%m-%d")
+                period_end = datetime.strptime(to_date, "%Y-%m-%d")
+
+                overlap_start = max(start, period_start)
+                overlap_end = min(end, period_end)
+
+                if overlap_start <= overlap_end:
+                    days = (overlap_end - overlap_start).days + 1
+                    equipment_revenue += days * daily_price
+
+            patient_total_revenue = stay_revenue + item_revenue + equipment_revenue
+            total_revenue += patient_total_revenue
             
-            # Calculate total patient cost
-            patient_cost = icu_cost + total_category_cost
-            total_revenue += patient_cost
-            
-            patient_details.append({
-                'name': name,
-                'revenue': patient_cost
-            })
-        
+            # For the company, all item and equipment charges are pass-through costs
+            patient_operational_cost = item_revenue + equipment_revenue
+            total_operational_cost += patient_operational_cost
+
+            if patient_total_revenue > 0:
+                patient_details.append({
+                    'name': name,
+                    'revenue': patient_total_revenue
+                })
+
         conn.close()
-        
+
         return {
             'total': total_revenue,
             'details': patient_details,
-            'operational_cost': operational_cost
+            'operational_cost': total_operational_cost
         }
     
     def export_report(self):

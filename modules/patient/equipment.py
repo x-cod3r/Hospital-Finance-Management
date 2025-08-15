@@ -103,7 +103,7 @@ class EquipmentHandler:
             return
 
         if messagebox.askyesno("Confirm", "Are you sure you want to remove this equipment?"):
-            record_id = self.equipment_tree.item(selected_item, 'values')[0]
+            record_id = selected_item
             conn = sqlite3.connect("db/patients.db")
             cursor = conn.cursor()
             try:
@@ -136,7 +136,7 @@ class EquipmentHandler:
         """, (self.patient_module.current_patient_id,))
         
         for row in cursor.fetchall():
-            self.equipment_tree.insert("", "end", values=row)
+            self.equipment_tree.insert("", "end", iid=row[0], values=(row[1], row[2], row[3] or "", format_currency(row[4])))
         conn.close()
 
     def load_defaults_for_stay(self, stay_date, care_level_id):
@@ -158,7 +158,7 @@ class EquipmentHandler:
         """, (care_level_id,))
         
         for row in cursor.fetchall():
-            self.equipment_tree.insert("", "end", values=("", row[1], stay_date.strftime('%Y-%m-%d'), "", row[2]), iid=row[0])
+            self.equipment_tree.insert("", "end", iid=row[0], values=(row[1], stay_date.strftime('%Y-%m-%d'), "", format_currency(row[2])))
         conn.close()
 
     def confirm_stay_and_equipment(self):
@@ -174,18 +174,14 @@ class EquipmentHandler:
                            (patient_id, stay_date_str, self.care_level_id))
 
             # Add the equipment
-            for item_id in self.equipment_tree.get_children():
-                values = self.equipment_tree.item(item_id, 'values')
-                equipment_name, start_date, end_date, daily_price = values[1], values[2], values[3], values[4]
-                
-                conn_items = sqlite3.connect("db/items.db")
-                cursor_items = conn_items.cursor()
-                cursor_items.execute("SELECT id FROM equipment WHERE name = ?", (equipment_name,))
-                equipment_id = cursor_items.fetchone()[0]
-                conn_items.close()
+            for equipment_id in self.equipment_tree.get_children():
+                values = self.equipment_tree.item(equipment_id, 'values')
+                start_date = values[1]
+                price_str = values[3]
+                price = float(price_str.replace("$", "").replace(",", ""))
 
                 cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, daily_rental_price) VALUES (?, ?, ?, ?)",
-                               (patient_id, equipment_id, start_date, daily_price))
+                               (patient_id, equipment_id, start_date, price))
 
             conn.commit()
             messagebox.showinfo("Success", "Stay and equipment confirmed successfully.")
