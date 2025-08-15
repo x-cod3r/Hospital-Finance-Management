@@ -129,6 +129,9 @@ class ICUManagementApp:
         # Set up module connections
         patient_module.doctor_module = doctor_module
         patient_module.nurse_module = nurse_module
+        settings_module.doctor_module = doctor_module
+        settings_module.nurse_module = nurse_module
+        settings_module.patient_module = patient_module
     
     def show_about(self):
         """Show about dialog"""

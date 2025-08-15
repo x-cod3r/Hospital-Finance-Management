@@ -65,24 +65,24 @@ class PatientModule:
         self.setup_package_tab(package_tab)
         
         # Labs tab
-        labs_tab = ttk.Frame(notebook)
-        notebook.add(labs_tab, text="Labs")
-        self.setup_labs_tab(labs_tab)
+        self.labs_tab_frame = ttk.Frame(notebook)
+        notebook.add(self.labs_tab_frame, text="Labs")
+        self.setup_labs_tab(self.labs_tab_frame)
         
         # Drugs tab
-        drugs_tab = ttk.Frame(notebook)
-        notebook.add(drugs_tab, text="Drugs")
-        self.setup_drugs_tab(drugs_tab)
+        self.drugs_tab_frame = ttk.Frame(notebook)
+        notebook.add(self.drugs_tab_frame, text="Drugs")
+        self.setup_drugs_tab(self.drugs_tab_frame)
         
         # Radiology tab
-        radiology_tab = ttk.Frame(notebook)
-        notebook.add(radiology_tab, text="Radiology")
-        self.setup_radiology_tab(radiology_tab)
+        self.radiology_tab_frame = ttk.Frame(notebook)
+        notebook.add(self.radiology_tab_frame, text="Radiology")
+        self.setup_radiology_tab(self.radiology_tab_frame)
         
         # Consultations tab
-        consultations_tab = ttk.Frame(notebook)
-        notebook.add(consultations_tab, text="Consultations")
-        self.setup_consultations_tab(consultations_tab)
+        self.consultations_tab_frame = ttk.Frame(notebook)
+        notebook.add(self.consultations_tab_frame, text="Consultations")
+        self.setup_consultations_tab(self.consultations_tab_frame)
         
         # Cost calculation
         cost_frame = ttk.LabelFrame(details_frame, text="Cost Calculation", padding="5")
@@ -255,6 +255,8 @@ class PatientModule:
         # Format item names
         item_names = [f"{item[1]} ({format_currency(item[2])})" for item in items]
         item_combo['values'] = item_names
+        if item_names:
+            item_combo.current(0)
         
         # Date
         ttk.Label(item_frame, text="Date:").pack(side=tk.LEFT, padx=(10, 0))
