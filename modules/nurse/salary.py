@@ -16,10 +16,17 @@ class SalaryHandler:
             return
         self.nurse_module.current_nurse_id = selected_nurses[0]
 
-        start_date = self.nurse_module.start_date_entry.get_date().strftime('%Y-%m-%d')
-        end_date = self.nurse_module.end_date_entry.get_date().strftime('%Y-%m-%d')
+        start_date = self.nurse_module.start_date_entry.get_date()
+        end_date = self.nurse_module.end_date_entry.get_date()
 
-        salary_details = calculate_salary_details("nurse", self.nurse_module.current_nurse_id, start_date, end_date)
+        if start_date > end_date:
+            show_error_message("Error", "Start date cannot be after end date.")
+            return
+
+        start_date_str = start_date.strftime('%Y-%m-%d')
+        end_date_str = end_date.strftime('%Y-%m-%d')
+
+        salary_details = calculate_salary_details("nurse", self.nurse_module.current_nurse_id, start_date_str, end_date_str)
 
         if not salary_details:
             show_error_message("Error", "Could not calculate salary.")
@@ -27,7 +34,7 @@ class SalaryHandler:
 
         result_text = f"""
 Nurse: {salary_details['name']}
-Period: {start_date} to {end_date}
+Period: {start_date_str} to {end_date_str}
 
 Total Hours: {salary_details['total_hours']:.2f}
 Hourly Rate: {format_currency(salary_details['hourly_rate'])}
@@ -47,16 +54,23 @@ Total Salary: {format_currency(salary_details['total_salary'])}
             return
         self.nurse_module.current_nurse_id = selected_nurses[0]
 
-        start_date = self.nurse_module.start_date_entry.get_date().strftime('%Y-%m-%d')
-        end_date = self.nurse_module.end_date_entry.get_date().strftime('%Y-%m-%d')
+        start_date = self.nurse_module.start_date_entry.get_date()
+        end_date = self.nurse_module.end_date_entry.get_date()
 
-        salary_details = calculate_salary_details("nurse", self.nurse_module.current_nurse_id, start_date, end_date)
+        if start_date > end_date:
+            show_error_message("Error", "Start date cannot be after end date.")
+            return
+
+        start_date_str = start_date.strftime('%Y-%m-%d')
+        end_date_str = end_date.strftime('%Y-%m-%d')
+
+        salary_details = calculate_salary_details("nurse", self.nurse_module.current_nurse_id, start_date_str, end_date_str)
 
         if not salary_details:
             show_error_message("Error", "Could not export salary sheet.")
             return
 
-        filename = f"{salary_details['name']}_salary_{start_date}_to_{end_date}.{export_format}"
+        filename = f"{salary_details['name']}_salary_{start_date_str}_to_{end_date_str}.{export_format}"
 
         if export_format == 'xlsx':
             try:
@@ -67,7 +81,7 @@ Total Salary: {format_currency(salary_details['total_salary'])}
                 sheet.append(["Nurse Salary Sheet"])
                 sheet.append([])
                 sheet.append(["Nurse Name:", salary_details['name']])
-                sheet.append(["Period:", f"{start_date} to {end_date}"])
+                sheet.append(["Period:", f"{start_date_str} to {end_date_str}"])
                 sheet.append([])
                 sheet.append(["Total Hours:", f"{salary_details['total_hours']:.2f}"])
                 sheet.append(["Hourly Rate:", format_currency(salary_details['hourly_rate'])])
@@ -94,7 +108,7 @@ Total Salary: {format_currency(salary_details['total_salary'])}
                 "Nurse Salary Sheet",
                 "",
                 f"Nurse Name: {salary_details['name']}",
-                f"Period: {start_date} to {end_date}",
+                f"Period: {start_date_str} to {end_date_str}",
                 "",
                 f"Total Hours: {salary_details['total_hours']:.2f}",
                 f"Hourly Rate: {format_currency(salary_details['hourly_rate'])}",

@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
+from tkcalendar import DateEntry
 from .utils import format_currency, show_error_message
 from .company.reporting import ReportingHandler
 
@@ -22,14 +23,14 @@ class CompanyModule:
         
         # Date range
         ttk.Label(params_frame, text="From Date:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        self.from_date_var = tk.StringVar()
-        self.from_date_var.set((datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"))
-        ttk.Entry(params_frame, textvariable=self.from_date_var).grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 10))
+        self.from_date_entry = DateEntry(params_frame, width=12, background='darkblue', foreground='white', borderwidth=2, date_pattern='y-mm-dd')
+        self.from_date_entry.set_date(datetime.now() - timedelta(days=30))
+        self.from_date_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 10))
         
         ttk.Label(params_frame, text="To Date:").grid(row=0, column=2, sticky=tk.W, pady=2)
-        self.to_date_var = tk.StringVar()
-        self.to_date_var.set(datetime.now().strftime("%Y-%m-%d"))
-        ttk.Entry(params_frame, textvariable=self.to_date_var).grid(row=0, column=3, sticky=(tk.W, tk.E), pady=2, padx=(5, 10))
+        self.to_date_entry = DateEntry(params_frame, width=12, background='darkblue', foreground='white', borderwidth=2, date_pattern='y-mm-dd')
+        self.to_date_entry.set_date(datetime.now())
+        self.to_date_entry.grid(row=0, column=3, sticky=(tk.W, tk.E), pady=2, padx=(5, 10))
         
         # Report type
         ttk.Label(params_frame, text="Report Type:").grid(row=1, column=0, sticky=tk.W, pady=(10, 2))
@@ -70,15 +71,16 @@ class CompanyModule:
         """Generate company report"""
         print("Generating report...")
         try:
-            from_date = self.from_date_var.get()
-            to_date = self.to_date_var.get()
+            from_date = self.from_date_entry.get_date().strftime("%Y-%m-%d")
+            to_date = self.to_date_entry.get_date().strftime("%Y-%m-%d")
             report_type = self.report_type_var.get()
             
             print(f"Report parameters: from={from_date}, to={to_date}, type={report_type}")
 
             # Validate dates
-            datetime.strptime(from_date, "%Y-%m-%d")
-            datetime.strptime(to_date, "%Y-%m-%d")
+            if self.from_date_entry.get_date() > self.to_date_entry.get_date():
+                show_error_message("Error", "From date cannot be after to date")
+                return
         except ValueError:
             show_error_message("Error", "Please enter valid dates (YYYY-MM-DD)")
             print("Error: Please enter valid dates (YYYY-MM-DD)")
