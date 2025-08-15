@@ -94,7 +94,9 @@ Total Cost: {format_currency(total_cost)}
         for start_date, end_date, daily_price in cursor.fetchall():
             start = datetime.strptime(start_date, "%Y-%m-%d")
             end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.now()
-            days = (end - start).days + 1
+            days = (end - start).days
+            if days == 0:
+                days = 1
             total_cost += days * daily_price
         conn.close()
         return total_cost
@@ -242,7 +244,9 @@ Total Cost: {format_currency(total_cost)}
         for name, start_date, end_date, daily_price in cursor.fetchall():
             start = datetime.strptime(start_date, "%Y-%m-%d")
             end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.now()
-            days = (end - start).days + 1
+            days = (end - start).days
+            if days == 0:
+                days = 1
             cost = days * daily_price
             details["total_cost"] += cost
             details["equipment"].append((name, start_date, end_date, days, daily_price, cost))

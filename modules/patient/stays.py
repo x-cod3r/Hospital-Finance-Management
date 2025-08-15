@@ -50,13 +50,13 @@ class StaysHandler:
             self.stay_care_level_combo.current(0)
 
     def add_stay(self):
-        """Add a new stay record for the selected patient"""
+        """Start the process of adding a new stay by switching to the equipment tab."""
         selected_patients = self.patient_module.crud_handler.get_selected_patients()
-        if not selected_patients:
-            messagebox.showwarning("Warning", "Please select at least one patient.")
+        if len(selected_patients) != 1:
+            messagebox.showwarning("Warning", "Please select exactly one patient to add a stay.")
             return
 
-        stay_date = self.stay_date_entry.get_date().strftime('%Y-%m-%d')
+        stay_date = self.stay_date_entry.get_date()
         selected_level_text = self.stay_care_level_var.get()
         
         if not stay_date or not selected_level_text:
@@ -73,24 +73,7 @@ class StaysHandler:
             messagebox.showerror("Error", "Invalid care level selected.")
             return
 
-        conn = sqlite3.connect("db/patients.db")
-        cursor = conn.cursor()
-        try:
-            for patient_id in selected_patients:
-                cursor.execute("SELECT id FROM patient_stays WHERE patient_id = ? AND stay_date = ?", (patient_id, stay_date))
-                if cursor.fetchone():
-                    messagebox.showwarning("Warning", f"A stay for this date already exists for one or more selected patients. It will be updated.")
-                    cursor.execute("UPDATE patient_stays SET care_level_id = ? WHERE patient_id = ? AND stay_date = ?", (care_level_id, patient_id, stay_date))
-                else:
-                    cursor.execute("INSERT INTO patient_stays (patient_id, stay_date, care_level_id) VALUES (?, ?, ?)", (patient_id, stay_date, care_level_id))
-            conn.commit()
-            messagebox.showinfo("Success", "Stay record(s) added/updated successfully.")
-            if len(selected_patients) == 1:
-                self.load_stays()
-        except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to add stay record: {e}")
-        finally:
-            conn.close()
+        self.patient_module.switch_to_equipment_tab_for_stay(stay_date, care_level_id)
 
     def remove_stay(self):
         """Remove the selected stay record"""

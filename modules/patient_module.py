@@ -69,31 +69,31 @@ class PatientModule:
         ttk.Entry(details_frame, textvariable=self.discharge_date_var, state="readonly").grid(row=2, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
         ttk.Label(details_frame, text="Discharge Date:").grid(row=2, column=0, sticky=tk.W, pady=2)
 
-        notebook = ttk.Notebook(details_frame)
-        notebook.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        self.notebook = ttk.Notebook(details_frame)
+        self.notebook.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
 
-        self.stays_tab_frame = ttk.Frame(notebook)
-        notebook.add(self.stays_tab_frame, text="Stays")
+        self.stays_tab_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.stays_tab_frame, text="Stays")
         self.stays_handler.setup_stays_tab(self.stays_tab_frame)
 
-        self.labs_tab_frame = ttk.Frame(notebook)
-        notebook.add(self.labs_tab_frame, text="Labs")
+        self.labs_tab_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.labs_tab_frame, text="Labs")
         self.items_handler.setup_category_tab(self.labs_tab_frame, "labs")
 
-        self.drugs_tab_frame = ttk.Frame(notebook)
-        notebook.add(self.drugs_tab_frame, text="Drugs")
+        self.drugs_tab_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.drugs_tab_frame, text="Drugs")
         self.items_handler.setup_category_tab(self.drugs_tab_frame, "drugs")
 
-        self.radiology_tab_frame = ttk.Frame(notebook)
-        notebook.add(self.radiology_tab_frame, text="Radiology")
+        self.radiology_tab_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.radiology_tab_frame, text="Radiology")
         self.items_handler.setup_category_tab(self.radiology_tab_frame, "radiology")
 
-        self.consultations_tab_frame = ttk.Frame(notebook)
-        notebook.add(self.consultations_tab_frame, text="Consultations")
+        self.consultations_tab_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.consultations_tab_frame, text="Consultations")
         self.items_handler.setup_category_tab(self.consultations_tab_frame, "consultations")
 
-        self.equipment_tab_frame = ttk.Frame(notebook)
-        notebook.add(self.equipment_tab_frame, text="Equipment")
+        self.equipment_tab_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.equipment_tab_frame, text="Equipment")
         self.equipment_handler.setup_equipment_tab(self.equipment_tab_frame)
 
         cost_frame = ttk.LabelFrame(details_frame, text="Cost Calculation", padding="5")
@@ -117,6 +117,11 @@ class PatientModule:
                     tree.delete(item)
         for i in self.equipment_handler.equipment_tree.get_children():
             self.equipment_handler.equipment_tree.delete(i)
+
+    def switch_to_equipment_tab_for_stay(self, stay_date, care_level_id):
+        """Switch to the equipment tab and load defaults for a new stay."""
+        self.notebook.select(self.equipment_tab_frame)
+        self.equipment_handler.load_defaults_for_stay(stay_date, care_level_id)
 
     def _refresh_other_modules(self):
         """Refresh patient lists in other modules."""

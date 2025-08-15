@@ -27,6 +27,10 @@ class EquipmentHandler:
         ttk.Button(add_frame, text="Add Equipment", command=self.add_equipment).pack(side=tk.LEFT, padx=(10, 0))
         ttk.Button(add_frame, text="Remove Selected", command=self.remove_equipment).pack(side=tk.LEFT, padx=(5, 0))
 
+        self.confirm_button = ttk.Button(add_frame, text="Confirm Stay & Equipment", command=self.confirm_stay_and_equipment)
+        self.confirm_button.pack(side=tk.LEFT, padx=(10, 0))
+        self.confirm_button.pack_forget()
+
         list_frame = ttk.LabelFrame(parent, text="Assigned Equipment", padding="10")
         list_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
@@ -134,3 +138,61 @@ class EquipmentHandler:
         for row in cursor.fetchall():
             self.equipment_tree.insert("", "end", values=row)
         conn.close()
+
+    def load_defaults_for_stay(self, stay_date, care_level_id):
+        """Load default equipment for a new stay."""
+        self.stay_date = stay_date
+        self.care_level_id = care_level_id
+        self.confirm_button.pack(side=tk.LEFT, padx=(10, 0))
+
+        for i in self.equipment_tree.get_children():
+            self.equipment_tree.delete(i)
+
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT e.id, e.name, e.daily_rental_price
+            FROM care_level_equipment cle
+            JOIN equipment e ON cle.equipment_id = e.id
+            WHERE cle.care_level_id = ?
+        """, (care_level_id,))
+        
+        for row in cursor.fetchall():
+            self.equipment_tree.insert("", "end", values=("", row[1], stay_date.strftime('%Y-%m-%d'), "", row[2]), iid=row[0])
+        conn.close()
+
+    def confirm_stay_and_equipment(self):
+        """Save the stay and the equipment list to the database."""
+        patient_id = self.patient_module.current_patient_id
+        stay_date_str = self.stay_date.strftime('%Y-%m-%d')
+
+        conn = sqlite3.connect("db/patients.db")
+        cursor = conn.cursor()
+        try:
+            # Add the stay
+            cursor.execute("INSERT INTO patient_stays (patient_id, stay_date, care_level_id) VALUES (?, ?, ?)",
+                           (patient_id, stay_date_str, self.care_level_id))
+
+            # Add the equipment
+            for item_id in self.equipment_tree.get_children():
+                values = self.equipment_tree.item(item_id, 'values')
+                equipment_name, start_date, end_date, daily_price = values[1], values[2], values[3], values[4]
+                
+                conn_items = sqlite3.connect("db/items.db")
+                cursor_items = conn_items.cursor()
+                cursor_items.execute("SELECT id FROM equipment WHERE name = ?", (equipment_name,))
+                equipment_id = cursor_items.fetchone()[0]
+                conn_items.close()
+
+                cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, daily_rental_price) VALUES (?, ?, ?, ?)",
+                               (patient_id, equipment_id, start_date, daily_price))
+
+            conn.commit()
+            messagebox.showinfo("Success", "Stay and equipment confirmed successfully.")
+            self.confirm_button.pack_forget()
+            self.patient_module.stays_handler.load_stays()
+            self.load_patient_equipment()
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Failed to confirm stay: {e}")
+        finally:
+            conn.close()
