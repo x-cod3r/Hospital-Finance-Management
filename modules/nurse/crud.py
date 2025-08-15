@@ -57,24 +57,17 @@ class NurseCRUD:
         """Add a new nurse"""
         add_window = tk.Toplevel(self.parent)
         add_window.title("Add Nurse")
-        add_window.geometry("300x200")
+        add_window.geometry("300x150")
         add_window.transient(self.parent)
         add_window.grab_set()
         
         add_window.geometry("+%d+%d" % (add_window.winfo_screenwidth()/2 - 150,
-                                        add_window.winfo_screenheight()/2 - 100))
+                                        add_window.winfo_screenheight()/2 - 75))
         
         ttk.Label(add_window, text="Nurse Name:").pack(pady=(10, 0))
         name_entry = ttk.Entry(add_window, width=30)
         name_entry.pack(pady=5)
         name_entry.focus()
-        
-        ttk.Label(add_window, text="Level:").pack()
-        level_var = tk.StringVar()
-        level_combo = ttk.Combobox(add_window, textvariable=level_var, state="readonly", width=28)
-        level_combo['values'] = ["ICU", "Medium_ICU"]
-        level_combo.pack(pady=5)
-        level_combo.set("ICU")
         
         ttk.Label(add_window, text="Hourly Rate:").pack()
         rate_entry = ttk.Entry(add_window, width=30)
@@ -83,7 +76,7 @@ class NurseCRUD:
         
         def save_nurse():
             name = name_entry.get().strip()
-            level = level_var.get()
+            level = "ICU"  # Default level
             try:
                 rate = float(rate_entry.get())
             except ValueError:
@@ -92,10 +85,6 @@ class NurseCRUD:
             
             if not name:
                 messagebox.showerror("Error", "Please enter a nurse name")
-                return
-            
-            if not level:
-                messagebox.showerror("Error", "Please select a level")
                 return
             
             conn = sqlite3.connect("db/nurses.db")
@@ -133,25 +122,18 @@ class NurseCRUD:
         
         edit_window = tk.Toplevel(self.parent)
         edit_window.title("Edit Nurse")
-        edit_window.geometry("300x200")
+        edit_window.geometry("300x150")
         edit_window.transient(self.parent)
         edit_window.grab_set()
         
         edit_window.geometry("+%d+%d" % (edit_window.winfo_screenwidth()/2 - 150,
-                                         edit_window.winfo_screenheight()/2 - 100))
+                                         edit_window.winfo_screenheight()/2 - 75))
         
         ttk.Label(edit_window, text="Nurse Name:").pack(pady=(10, 0))
         name_entry = ttk.Entry(edit_window, width=30)
         name_entry.pack(pady=5)
         name_entry.insert(0, nurse[0])
         name_entry.focus()
-        
-        ttk.Label(edit_window, text="Level:").pack()
-        level_var = tk.StringVar()
-        level_combo = ttk.Combobox(edit_window, textvariable=level_var, state="readonly", width=28)
-        level_combo['values'] = ["ICU", "Medium_ICU"]
-        level_combo.pack(pady=5)
-        level_combo.set(nurse[1])
         
         ttk.Label(edit_window, text="Hourly Rate:").pack()
         rate_entry = ttk.Entry(edit_window, width=30)
@@ -160,7 +142,7 @@ class NurseCRUD:
         
         def save_nurse():
             name = name_entry.get().strip()
-            level = level_var.get()
+            level = nurse[1] # Keep the existing level
             try:
                 rate = float(rate_entry.get())
             except ValueError:
@@ -169,10 +151,6 @@ class NurseCRUD:
             
             if not name:
                 messagebox.showerror("Error", "Please enter a nurse name")
-                return
-            
-            if not level:
-                messagebox.showerror("Error", "Please select a level")
                 return
             
             conn = sqlite3.connect("db/nurses.db")

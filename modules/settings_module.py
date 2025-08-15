@@ -5,6 +5,7 @@ from .settings.user_management import UserManagementHandler
 from .settings.audit_log import AuditLogHandler
 from .settings.item_management import ItemManagementHandler
 from .settings.care_level_management import CareLevelManagementHandler
+from .settings.equipment_management import EquipmentManagementHandler
 
 class SettingsModule:
     def __init__(self, parent):
@@ -18,6 +19,7 @@ class SettingsModule:
         self.audit_log_handler = AuditLogHandler(self)
         self.item_management_handler = ItemManagementHandler(self)
         self.care_level_management_handler = CareLevelManagementHandler(self)
+        self.equipment_management_handler = EquipmentManagementHandler(self)
 
         self.setup_ui()
 
@@ -47,6 +49,10 @@ class SettingsModule:
         care_level_tab = ttk.Frame(notebook)
         notebook.add(care_level_tab, text="Care Level Management")
         self.care_level_management_handler.setup_care_level_tab(care_level_tab)
+
+        equipment_tab = ttk.Frame(notebook)
+        notebook.add(equipment_tab, text="Equipment Management")
+        self.equipment_management_handler.setup_equipment_tab(equipment_tab)
 
     def _refresh_other_modules(self):
         """Refresh item lists in other modules."""

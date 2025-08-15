@@ -4,6 +4,7 @@ from .patient.crud import PatientCRUD
 from .patient.stays import StaysHandler
 from .patient.items import ItemsHandler
 from .patient.costing import CostingHandler
+from .patient.equipment import EquipmentHandler
 
 class PatientModule:
     def __init__(self, parent):
@@ -15,6 +16,7 @@ class PatientModule:
         self.stays_handler = StaysHandler(self)
         self.items_handler = ItemsHandler(self)
         self.costing_handler = CostingHandler(self)
+        self.equipment_handler = EquipmentHandler(self)
 
         self.setup_ui()
         self.crud_handler.load_patients()
@@ -90,6 +92,10 @@ class PatientModule:
         notebook.add(self.consultations_tab_frame, text="Consultations")
         self.items_handler.setup_category_tab(self.consultations_tab_frame, "consultations")
 
+        self.equipment_tab_frame = ttk.Frame(notebook)
+        notebook.add(self.equipment_tab_frame, text="Equipment")
+        self.equipment_handler.setup_equipment_tab(self.equipment_tab_frame)
+
         cost_frame = ttk.LabelFrame(details_frame, text="Cost Calculation", padding="5")
         cost_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
 
@@ -109,6 +115,8 @@ class PatientModule:
                 tree = vars_attr['tree']
                 for item in tree.get_children():
                     tree.delete(item)
+        for i in self.equipment_handler.equipment_tree.get_children():
+            self.equipment_handler.equipment_tree.delete(i)
 
     def _refresh_other_modules(self):
         """Refresh patient lists in other modules."""

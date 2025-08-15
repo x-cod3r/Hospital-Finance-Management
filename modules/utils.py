@@ -204,6 +204,18 @@ def setup_patients_db():
             FOREIGN KEY (patient_id) REFERENCES patients (id)
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS patient_equipment (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id INTEGER,
+            equipment_id INTEGER,
+            start_date DATE NOT NULL,
+            end_date DATE,
+            daily_rental_price REAL,
+            FOREIGN KEY (patient_id) REFERENCES patients (id)
+        )
+    ''')
     
     conn.commit()
     conn.close()
@@ -265,6 +277,22 @@ def setup_items_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             daily_rate REAL NOT NULL
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS equipment (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            daily_rental_price REAL NOT NULL
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS care_level_equipment (
+            care_level_id INTEGER,
+            equipment_id INTEGER,
+            PRIMARY KEY (care_level_id, equipment_id)
         )
     ''')
     

@@ -62,8 +62,9 @@ class CostingHandler:
 
         total_doctor_cost = self.calculate_staff_cost("doctor")
         total_nurse_cost = self.calculate_staff_cost("nurse")
+        total_equipment_cost = self.calculate_equipment_cost()
 
-        total_cost = total_stay_cost + total_category_cost + total_doctor_cost + total_nurse_cost
+        total_cost = total_stay_cost + total_category_cost + total_doctor_cost + total_nurse_cost + total_equipment_cost
 
         result_text = f"""
 Patient: {name}
@@ -78,10 +79,25 @@ Radiology: {format_currency(category_costs['radiology'])}
 Consultations: {format_currency(category_costs['consultations'])}
 Doctor Costs: {format_currency(total_doctor_cost)}
 Nurse Costs: {format_currency(total_nurse_cost)}
+Equipment Costs: {format_currency(total_equipment_cost)}
 
 Total Cost: {format_currency(total_cost)}
         """
         messagebox.showinfo("Cost Calculation", result_text)
+
+    def calculate_equipment_cost(self):
+        """Calculate total equipment cost for the selected patient"""
+        total_cost = 0.0
+        conn = sqlite3.connect("db/patients.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT start_date, end_date, daily_rental_price FROM patient_equipment WHERE patient_id = ?", (self.patient_module.current_patient_id,))
+        for start_date, end_date, daily_price in cursor.fetchall():
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.now()
+            days = (end - start).days + 1
+            total_cost += days * daily_price
+        conn.close()
+        return total_cost
 
     def calculate_staff_cost(self, staff_type):
         total_cost = 0.0
@@ -166,10 +182,12 @@ Total Cost: {format_currency(total_cost)}
 
         doctor_details = self.get_staff_cost_details("doctor")
         nurse_details = self.get_staff_cost_details("nurse")
+        equipment_details = self.get_equipment_cost_details()
         total_doctor_cost = doctor_details["total_cost"]
         total_nurse_cost = nurse_details["total_cost"]
+        total_equipment_cost = equipment_details["total_cost"]
 
-        total_cost = total_stay_cost + total_category_cost + total_doctor_cost + total_nurse_cost
+        total_cost = total_stay_cost + total_category_cost + total_doctor_cost + total_nurse_cost + total_equipment_cost
 
         filename = f"{name}_cost_sheet_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         try:
@@ -201,6 +219,7 @@ Total Cost: {format_currency(total_cost)}
             
             self.append_staff_details_to_sheet(sheet, "Doctor", doctor_details)
             self.append_staff_details_to_sheet(sheet, "Nurse", nurse_details)
+            self.append_equipment_details_to_sheet(sheet, "Equipment", equipment_details)
 
             sheet.append(["Total Cost:", format_currency(total_cost)])
 
@@ -208,6 +227,27 @@ Total Cost: {format_currency(total_cost)}
             messagebox.showinfo("Export Success", f"Cost sheet exported to {filename}")
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to export cost sheet: {e}")
+
+    def get_equipment_cost_details(self):
+        details = {"total_cost": 0.0, "equipment": []}
+        conn = sqlite3.connect("db/patients.db")
+        cursor = conn.cursor()
+        cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
+        cursor.execute("""
+            SELECT e.name, pe.start_date, pe.end_date, pe.daily_rental_price
+            FROM patient_equipment pe
+            JOIN items_db.equipment e ON pe.equipment_id = e.id
+            WHERE pe.patient_id = ?
+        """, (self.patient_module.current_patient_id,))
+        for name, start_date, end_date, daily_price in cursor.fetchall():
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.now()
+            days = (end - start).days + 1
+            cost = days * daily_price
+            details["total_cost"] += cost
+            details["equipment"].append((name, start_date, end_date, days, daily_price, cost))
+        conn.close()
+        return details
 
     def get_staff_cost_details(self, staff_type):
         details = {"total_cost": 0.0, "shifts": [], "interventions": []}
@@ -252,4 +292,13 @@ Total Cost: {format_currency(total_cost)}
             sheet.append(["    Date", "Intervention", staff_title, "Bonus"])
             for date, int_name, name, bonus in details['interventions']:
                 sheet.append([f"    {date}", int_name, name, format_currency(bonus)])
+        sheet.append([])
+
+    def append_equipment_details_to_sheet(self, sheet, title, details):
+        sheet.append([f"{title} Costs:", format_currency(details['total_cost'])])
+        if details['equipment']:
+            sheet.append([f"  {title}"])
+            sheet.append(["    Name", "Start Date", "End Date", "Days", "Daily Price", "Cost"])
+            for name, start_date, end_date, days, daily_price, cost in details['equipment']:
+                sheet.append([f"    {name}", start_date, end_date or 'N/A', days, format_currency(daily_price), format_currency(cost)])
         sheet.append([])

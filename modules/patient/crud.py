@@ -56,6 +56,7 @@ class PatientCRUD:
                 self.patient_module.items_handler.load_category_items("drugs")
                 self.patient_module.items_handler.load_category_items("radiology")
                 self.patient_module.items_handler.load_category_items("consultations")
+                self.patient_module.equipment_handler.load_patient_equipment()
         else:
             # Clear details if none or multiple are selected
             self.patient_module.name_var.set("")
