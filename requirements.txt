@@ -1,4 +1,3 @@
-tkinter
-sqlite3
-datetimereportlab
+reportlab
 openpyxl
+tkcalendar

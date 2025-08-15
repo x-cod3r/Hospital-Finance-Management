@@ -15,27 +15,44 @@ class DoctorModule:
         # Main frame
         main_frame = ttk.Frame(self.parent, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.grid_columnconfigure(1, weight=1)
+        main_frame.grid_rowconfigure(0, weight=1)
         
         # Doctors list frame
         list_frame = ttk.LabelFrame(main_frame, text="Doctors", padding="10")
-        list_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, padx=(0, 10))
+        list_frame.grid(row=0, column=0, sticky="ns", padx=(0, 10))
         
-        # Doctors listbox
-        self.doctors_listbox = tk.Listbox(list_frame, height=15)
-        self.doctors_listbox.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        self.doctors_listbox.bind('<<ListboxSelect>>', self.on_doctor_select)
+        # Doctors list with checkboxes
+        canvas = tk.Canvas(list_frame)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self.doctor_vars = {}
         
         # Buttons frame
         buttons_frame = ttk.Frame(list_frame)
-        buttons_frame.pack(fill=tk.X)
+        buttons_frame.pack(fill=tk.X, pady=(5, 0))
         
-        ttk.Button(buttons_frame, text="Add Doctor", command=self.add_doctor).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(buttons_frame, text="Edit Doctor", command=self.edit_doctor).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(buttons_frame, text="Delete Doctor", command=self.delete_doctor).pack(side=tk.LEFT)
+        ttk.Button(buttons_frame, text="Add Doctor", command=self.add_doctor).pack(fill=tk.X, pady=(0, 5))
+        ttk.Button(buttons_frame, text="Edit Doctor", command=self.edit_doctor).pack(fill=tk.X, pady=(0, 5))
+        ttk.Button(buttons_frame, text="Delete Doctor", command=self.delete_doctor).pack(fill=tk.X)
         
         # Doctor details frame
         details_frame = ttk.LabelFrame(main_frame, text="Doctor Details", padding="10")
-        details_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
+        details_frame.grid(row=0, column=1, sticky="nsew")
         
         # Doctor info
         ttk.Label(details_frame, text="Name:").grid(row=0, column=0, sticky=tk.W, pady=2)
@@ -58,6 +75,7 @@ class DoctorModule:
 
         ttk.Label(shift_frame, text="Arrival Time (HH:MM):").grid(row=1, column=0, sticky=tk.W, pady=2)
         self.arrival_time_var = tk.StringVar()
+        self.arrival_time_var.set("09:00")
         ttk.Entry(shift_frame, textvariable=self.arrival_time_var).grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
 
         ttk.Label(shift_frame, text="AM/PM:").grid(row=1, column=2, sticky=tk.W, pady=2, padx=(5, 0))
@@ -72,6 +90,7 @@ class DoctorModule:
 
         ttk.Label(shift_frame, text="Leave Time (HH:MM):").grid(row=3, column=0, sticky=tk.W, pady=2)
         self.leave_time_var = tk.StringVar()
+        self.leave_time_var.set("09:00")
         ttk.Entry(shift_frame, textvariable=self.leave_time_var).grid(row=3, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
 
         ttk.Label(shift_frame, text="AM/PM:").grid(row=3, column=2, sticky=tk.W, pady=2, padx=(5, 0))
@@ -129,11 +148,16 @@ class DoctorModule:
         
         # Configure grid weights
         details_frame.columnconfigure(1, weight=1)
-        main_frame.columnconfigure(1, weight=1)
+
+    def get_selected_doctors(self):
+        """Get a list of selected doctor IDs"""
+        return [doc_id for doc_id, var in self.doctor_vars.items() if var.get()]
     
     def load_doctors(self):
-        """Load doctors into listbox"""
-        self.doctors_listbox.delete(0, tk.END)
+        """Load doctors into a list of checkboxes"""
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
+        self.doctor_vars = {}
         
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
@@ -142,7 +166,12 @@ class DoctorModule:
         conn.close()
         
         for doctor in doctors:
-            self.doctors_listbox.insert(tk.END, f"{doctor[0]}: {doctor[1]}")
+            doctor_id, doctor_name = doctor
+            var = tk.BooleanVar()
+            cb = ttk.Checkbutton(self.scrollable_frame, text=f"{doctor_id}: {doctor_name}", variable=var,
+                                 command=lambda doc_id=doctor_id: self.on_doctor_select(doc_id))
+            cb.pack(fill='x', padx=5, pady=2)
+            self.doctor_vars[doctor_id] = var
     
     def load_interventions(self):
         """Load interventions into combobox"""
@@ -167,14 +196,9 @@ class DoctorModule:
         self.shift_patient_combo['values'] = patient_names
         self.intervention_patient_combo['values'] = patient_names
     
-    def on_doctor_select(self, event):
-        """Handle doctor selection"""
-        selection = self.doctors_listbox.curselection()
-        if selection:
-            index = selection[0]
-            doctor_text = self.doctors_listbox.get(index)
-            doctor_id = int(doctor_text.split(":")[0])
-            
+    def on_doctor_select(self, doctor_id):
+        """Handle doctor selection from checkbox"""
+        if self.doctor_vars[doctor_id].get(): # If the checkbox is checked
             conn = sqlite3.connect("db/doctors.db")
             cursor = conn.cursor()
             cursor.execute("SELECT name, hourly_rate FROM doctors WHERE id = ?", (doctor_id,))
@@ -185,6 +209,12 @@ class DoctorModule:
                 self.name_var.set(doctor[0])
                 self.rate_var.set(format_currency(doctor[1]))
                 self.current_doctor_id = doctor_id
+        else: # If the checkbox is unchecked
+            # If this was the currently displayed doctor, clear the details
+            if hasattr(self, 'current_doctor_id') and self.current_doctor_id == doctor_id:
+                self.name_var.set("")
+                self.rate_var.set("")
+                delattr(self, 'current_doctor_id')
     
     def add_doctor(self):
         """Add a new doctor"""
@@ -244,9 +274,11 @@ class DoctorModule:
     
     def edit_doctor(self):
         """Edit selected doctor"""
-        if not hasattr(self, 'current_doctor_id'):
-            messagebox.showwarning("Warning", "Please select a doctor to edit")
+        selected_doctors = self.get_selected_doctors()
+        if len(selected_doctors) != 1:
+            messagebox.showwarning("Warning", "Please select exactly one doctor to edit")
             return
+        self.current_doctor_id = selected_doctors[0]
         
         # Get current doctor info
         conn = sqlite3.connect("db/doctors.db")
@@ -317,35 +349,38 @@ class DoctorModule:
         rate_entry.bind("<Return>", lambda event: save_doctor())
     
     def delete_doctor(self):
-        """Delete selected doctor"""
-        if not hasattr(self, 'current_doctor_id'):
-            messagebox.showwarning("Warning", "Please select a doctor to delete")
+        """Delete selected doctor(s)"""
+        selected_doctors = self.get_selected_doctors()
+        if not selected_doctors:
+            messagebox.showwarning("Warning", "Please select at least one doctor to delete")
             return
         
         # Confirm deletion
-        result = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this doctor?")
+        result = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete {len(selected_doctors)} doctor(s)?")
         if not result:
             return
         
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
         try:
-            # Delete related records first
-            cursor.execute("DELETE FROM doctor_shifts WHERE doctor_id = ?", (self.current_doctor_id,))
-            cursor.execute("DELETE FROM doctor_interventions WHERE doctor_id = ?", (self.current_doctor_id,))
-            cursor.execute("DELETE FROM doctor_payments WHERE doctor_id = ?", (self.current_doctor_id,))
-            
-            # Delete the doctor
-            cursor.execute("DELETE FROM doctors WHERE id = ?", (self.current_doctor_id,))
+            for doctor_id in selected_doctors:
+                # Delete related records first
+                cursor.execute("DELETE FROM doctor_shifts WHERE doctor_id = ?", (doctor_id,))
+                cursor.execute("DELETE FROM doctor_interventions WHERE doctor_id = ?", (doctor_id,))
+                cursor.execute("DELETE FROM doctor_payments WHERE doctor_id = ?", (doctor_id,))
+                
+                # Delete the doctor
+                cursor.execute("DELETE FROM doctors WHERE id = ?", (doctor_id,))
             conn.commit()
             
-            messagebox.showinfo("Success", "Doctor deleted successfully")
+            messagebox.showinfo("Success", f"{len(selected_doctors)} doctor(s) deleted successfully")
             self.load_doctors()
             
             # Clear details
             self.name_var.set("")
             self.rate_var.set("")
-            delattr(self, 'current_doctor_id')
+            if hasattr(self, 'current_doctor_id'):
+                delattr(self, 'current_doctor_id')
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to delete doctor: {e}")
             print(f"Error: Failed to delete doctor: {e}")
@@ -369,9 +404,10 @@ class DoctorModule:
         return overlap is not None
 
     def add_shift(self):
-        """Add shift for selected doctor"""
-        if not hasattr(self, 'current_doctor_id'):
-            messagebox.showwarning("Warning", "Please select a doctor first")
+        """Add shift for selected doctors"""
+        selected_doctors = self.get_selected_doctors()
+        if not selected_doctors:
+            messagebox.showwarning("Warning", "Please select at least one doctor")
             return
 
         try:
@@ -394,29 +430,36 @@ class DoctorModule:
             arrival_datetime = datetime.strptime(arrival_datetime_str, "%Y-%m-%d %I:%M %p")
             leave_datetime = datetime.strptime(leave_datetime_str, "%Y-%m-%d %I:%M %p")
 
-            if self.check_shift_overlap(self.current_doctor_id, arrival_datetime, leave_datetime):
-                messagebox.showerror("Error", "Shift overlaps with an existing shift.")
-                print("Error: Shift overlaps with an existing shift.")
-                return
-
-            hours = calculate_hours(arrival_datetime, leave_datetime)
-
             patient_text = self.shift_patient_var.get()
             if not patient_text:
                 messagebox.showerror("Error", "Please select a patient")
                 return
             patient_id = int(patient_text.split(":")[0])
 
+            hours = calculate_hours(arrival_datetime, leave_datetime)
+            
             conn = sqlite3.connect("db/doctors.db")
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO doctor_shifts (doctor_id, patient_id, arrival_datetime, leave_datetime)
-                VALUES (?, ?, ?, ?)
-            """, (self.current_doctor_id, patient_id, arrival_datetime, leave_datetime))
+            
+            success_count = 0
+            fail_count = 0
+
+            for doctor_id in selected_doctors:
+                if self.check_shift_overlap(doctor_id, arrival_datetime, leave_datetime):
+                    print(f"Shift overlap for doctor ID {doctor_id}")
+                    fail_count += 1
+                    continue
+
+                cursor.execute("""
+                    INSERT INTO doctor_shifts (doctor_id, patient_id, arrival_datetime, leave_datetime)
+                    VALUES (?, ?, ?, ?)
+                """, (doctor_id, patient_id, arrival_datetime, leave_datetime))
+                success_count += 1
+            
             conn.commit()
             conn.close()
 
-            messagebox.showinfo("Success", f"Shift added successfully ({hours} hours)")
+            messagebox.showinfo("Success", f"Shifts added for {success_count} doctors. Failed for {fail_count} doctors. ({hours} hours each)")
 
             # Clear fields
             self.arrival_time_var.set("")
@@ -430,9 +473,10 @@ class DoctorModule:
             print(f"Error: Failed to add shift: {e}")
     
     def add_intervention(self):
-        """Add intervention for selected doctor"""
-        if not hasattr(self, 'current_doctor_id'):
-            messagebox.showwarning("Warning", "Please select a doctor first")
+        """Add intervention for selected doctors"""
+        selected_doctors = self.get_selected_doctors()
+        if not selected_doctors:
+            messagebox.showwarning("Warning", "Please select at least one doctor")
             return
         
         date = self.intervention_date_var.get().strip()
@@ -466,12 +510,13 @@ class DoctorModule:
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
         try:
-            cursor.execute("""
-                INSERT INTO doctor_interventions (doctor_id, patient_id, date, intervention_id)
-                VALUES (?, ?, ?, ?)
-            """, (self.current_doctor_id, patient_id, date, intervention_id))
+            for doctor_id in selected_doctors:
+                cursor.execute("""
+                    INSERT INTO doctor_interventions (doctor_id, patient_id, date, intervention_id)
+                    VALUES (?, ?, ?, ?)
+                """, (doctor_id, patient_id, date, intervention_id))
             conn.commit()
-            messagebox.showinfo("Success", "Intervention added successfully")
+            messagebox.showinfo("Success", f"Intervention added for {len(selected_doctors)} doctors successfully")
             
             # Clear field
             self.intervention_var.set("")
@@ -483,9 +528,11 @@ class DoctorModule:
     
     def calculate_salary(self):
         """Calculate salary for selected doctor"""
-        if not hasattr(self, 'current_doctor_id'):
-            messagebox.showwarning("Warning", "Please select a doctor first")
+        selected_doctors = self.get_selected_doctors()
+        if len(selected_doctors) != 1:
+            messagebox.showwarning("Warning", "Please select exactly one doctor to calculate salary")
             return
+        self.current_doctor_id = selected_doctors[0]
 
         try:
             month = int(self.month_var.get())
@@ -520,9 +567,11 @@ Total Salary: {format_currency(salary_details['total_salary'])}
 
     def export_salary_sheet(self, export_format):
         """Export salary sheet for selected doctor"""
-        if not hasattr(self, 'current_doctor_id'):
-            messagebox.showwarning("Warning", "Please select a doctor first")
+        selected_doctors = self.get_selected_doctors()
+        if len(selected_doctors) != 1:
+            messagebox.showwarning("Warning", "Please select exactly one doctor to export salary sheet")
             return
+        self.current_doctor_id = selected_doctors[0]
 
         try:
             month = int(self.month_var.get())

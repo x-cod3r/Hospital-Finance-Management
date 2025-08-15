@@ -15,27 +15,44 @@ class NurseModule:
         # Main frame
         main_frame = ttk.Frame(self.parent, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.grid_columnconfigure(1, weight=1)
+        main_frame.grid_rowconfigure(0, weight=1)
         
         # Nurses list frame
         list_frame = ttk.LabelFrame(main_frame, text="Nurses", padding="10")
-        list_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, padx=(0, 10))
+        list_frame.grid(row=0, column=0, sticky="ns", padx=(0, 10))
         
-        # Nurses listbox
-        self.nurses_listbox = tk.Listbox(list_frame, height=15)
-        self.nurses_listbox.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        self.nurses_listbox.bind('<<ListboxSelect>>', self.on_nurse_select)
+        # Nurses list with checkboxes
+        canvas = tk.Canvas(list_frame)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self.nurse_vars = {}
         
         # Buttons frame
         buttons_frame = ttk.Frame(list_frame)
-        buttons_frame.pack(fill=tk.X)
+        buttons_frame.pack(fill=tk.X, pady=(5, 0))
         
-        ttk.Button(buttons_frame, text="Add Nurse", command=self.add_nurse).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(buttons_frame, text="Edit Nurse", command=self.edit_nurse).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(buttons_frame, text="Delete Nurse", command=self.delete_nurse).pack(side=tk.LEFT)
+        ttk.Button(buttons_frame, text="Add Nurse", command=self.add_nurse).pack(fill=tk.X, pady=(0, 5))
+        ttk.Button(buttons_frame, text="Edit Nurse", command=self.edit_nurse).pack(fill=tk.X, pady=(0, 5))
+        ttk.Button(buttons_frame, text="Delete Nurse", command=self.delete_nurse).pack(fill=tk.X)
         
         # Nurse details frame
         details_frame = ttk.LabelFrame(main_frame, text="Nurse Details", padding="10")
-        details_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
+        details_frame.grid(row=0, column=1, sticky="nsew")
         
         # Nurse info
         ttk.Label(details_frame, text="Name:").grid(row=0, column=0, sticky=tk.W, pady=2)
@@ -62,6 +79,7 @@ class NurseModule:
 
         ttk.Label(shift_frame, text="Arrival Time (HH:MM):").grid(row=1, column=0, sticky=tk.W, pady=2)
         self.arrival_time_var = tk.StringVar()
+        self.arrival_time_var.set("09:00")
         ttk.Entry(shift_frame, textvariable=self.arrival_time_var).grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
 
         ttk.Label(shift_frame, text="AM/PM:").grid(row=1, column=2, sticky=tk.W, pady=2, padx=(5, 0))
@@ -76,6 +94,7 @@ class NurseModule:
 
         ttk.Label(shift_frame, text="Leave Time (HH:MM):").grid(row=3, column=0, sticky=tk.W, pady=2)
         self.leave_time_var = tk.StringVar()
+        self.leave_time_var.set("09:00")
         ttk.Entry(shift_frame, textvariable=self.leave_time_var).grid(row=3, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
 
         ttk.Label(shift_frame, text="AM/PM:").grid(row=3, column=2, sticky=tk.W, pady=2, padx=(5, 0))
@@ -133,11 +152,16 @@ class NurseModule:
         
         # Configure grid weights
         details_frame.columnconfigure(1, weight=1)
-        main_frame.columnconfigure(1, weight=1)
+
+    def get_selected_nurses(self):
+        """Get a list of selected nurse IDs"""
+        return [nurse_id for nurse_id, var in self.nurse_vars.items() if var.get()]
     
     def load_nurses(self):
-        """Load nurses into listbox"""
-        self.nurses_listbox.delete(0, tk.END)
+        """Load nurses into a list of checkboxes"""
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
+        self.nurse_vars = {}
         
         conn = sqlite3.connect("db/nurses.db")
         cursor = conn.cursor()
@@ -146,7 +170,12 @@ class NurseModule:
         conn.close()
         
         for nurse in nurses:
-            self.nurses_listbox.insert(tk.END, f"{nurse[0]}: {nurse[1]} ({nurse[2]})")
+            nurse_id, nurse_name, nurse_level = nurse
+            var = tk.BooleanVar()
+            cb = ttk.Checkbutton(self.scrollable_frame, text=f"{nurse_id}: {nurse_name} ({nurse_level})", variable=var,
+                                 command=lambda nurse_id=nurse_id: self.on_nurse_select(nurse_id))
+            cb.pack(fill='x', padx=5, pady=2)
+            self.nurse_vars[nurse_id] = var
     
     def load_interventions(self):
         """Load interventions into combobox"""
@@ -171,14 +200,9 @@ class NurseModule:
         self.shift_patient_combo['values'] = patient_names
         self.intervention_patient_combo['values'] = patient_names
     
-    def on_nurse_select(self, event):
-        """Handle nurse selection"""
-        selection = self.nurses_listbox.curselection()
-        if selection:
-            index = selection[0]
-            nurse_text = self.nurses_listbox.get(index)
-            nurse_id = int(nurse_text.split(":")[0])
-            
+    def on_nurse_select(self, nurse_id):
+        """Handle nurse selection from checkbox"""
+        if self.nurse_vars[nurse_id].get(): # If the checkbox is checked
             conn = sqlite3.connect("db/nurses.db")
             cursor = conn.cursor()
             cursor.execute("SELECT name, level, hourly_rate FROM nurses WHERE id = ?", (nurse_id,))
@@ -190,6 +214,13 @@ class NurseModule:
                 self.level_var.set(nurse[1])
                 self.rate_var.set(format_currency(nurse[2]))
                 self.current_nurse_id = nurse_id
+        else: # If the checkbox is unchecked
+            # If this was the currently displayed nurse, clear the details
+            if hasattr(self, 'current_nurse_id') and self.current_nurse_id == nurse_id:
+                self.name_var.set("")
+                self.level_var.set("")
+                self.rate_var.set("")
+                delattr(self, 'current_nurse_id')
     
     def add_nurse(self):
         """Add a new nurse"""
@@ -262,9 +293,11 @@ class NurseModule:
     
     def edit_nurse(self):
         """Edit selected nurse"""
-        if not hasattr(self, 'current_nurse_id'):
-            messagebox.showwarning("Warning", "Please select a nurse to edit")
+        selected_nurses = self.get_selected_nurses()
+        if len(selected_nurses) != 1:
+            messagebox.showwarning("Warning", "Please select exactly one nurse to edit")
             return
+        self.current_nurse_id = selected_nurses[0]
         
         # Get current nurse info
         conn = sqlite3.connect("db/nurses.db")
@@ -349,46 +382,66 @@ class NurseModule:
         rate_entry.bind("<Return>", lambda event: save_nurse())
     
     def delete_nurse(self):
-        """Delete selected nurse"""
-        if not hasattr(self, 'current_nurse_id'):
-            messagebox.showwarning("Warning", "Please select a nurse to delete")
+        """Delete selected nurse(s)"""
+        selected_nurses = self.get_selected_nurses()
+        if not selected_nurses:
+            messagebox.showwarning("Warning", "Please select at least one nurse to delete")
             return
         
         # Confirm deletion
-        result = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this nurse?")
+        result = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete {len(selected_nurses)} nurse(s)?")
         if not result:
             return
         
         conn = sqlite3.connect("db/nurses.db")
         cursor = conn.cursor()
         try:
-            # Delete related records first
-            cursor.execute("DELETE FROM nurse_shifts WHERE nurse_id = ?", (self.current_nurse_id,))
-            cursor.execute("DELETE FROM nurse_interventions WHERE nurse_id = ?", (self.current_nurse_id,))
-            cursor.execute("DELETE FROM nurse_payments WHERE nurse_id = ?", (self.current_nurse_id,))
-            
-            # Delete the nurse
-            cursor.execute("DELETE FROM nurses WHERE id = ?", (self.current_nurse_id,))
+            for nurse_id in selected_nurses:
+                # Delete related records first
+                cursor.execute("DELETE FROM nurse_shifts WHERE nurse_id = ?", (nurse_id,))
+                cursor.execute("DELETE FROM nurse_interventions WHERE nurse_id = ?", (nurse_id,))
+                cursor.execute("DELETE FROM nurse_payments WHERE nurse_id = ?", (nurse_id,))
+                
+                # Delete the nurse
+                cursor.execute("DELETE FROM nurses WHERE id = ?", (nurse_id,))
             conn.commit()
             
-            messagebox.showinfo("Success", "Nurse deleted successfully")
+            messagebox.showinfo("Success", f"{len(selected_nurses)} nurse(s) deleted successfully")
             self.load_nurses()
             
             # Clear details
             self.name_var.set("")
             self.level_var.set("")
             self.rate_var.set("")
-            delattr(self, 'current_nurse_id')
+            if hasattr(self, 'current_nurse_id'):
+                delattr(self, 'current_nurse_id')
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to delete nurse: {e}")
             print(f"Error: Failed to delete nurse: {e}")
         finally:
             conn.close()
     
+    def check_shift_overlap(self, nurse_id, arrival_datetime, leave_datetime):
+        """Check for overlapping shifts"""
+        conn = sqlite3.connect("db/nurses.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM nurse_shifts
+            WHERE nurse_id = ? AND (
+                (arrival_datetime <= ? AND leave_datetime >= ?) OR
+                (arrival_datetime <= ? AND leave_datetime >= ?) OR
+                (arrival_datetime >= ? AND leave_datetime <= ?)
+            )
+        """, (nurse_id, arrival_datetime, arrival_datetime, leave_datetime, leave_datetime, arrival_datetime, leave_datetime))
+        overlap = cursor.fetchone()
+        conn.close()
+        return overlap is not None
+
     def add_shift(self):
-        """Add shift for selected nurse"""
-        if not hasattr(self, 'current_nurse_id'):
-            messagebox.showwarning("Warning", "Please select a nurse first")
+        """Add shift for selected nurse(s)"""
+        selected_nurses = self.get_selected_nurses()
+        if not selected_nurses:
+            messagebox.showwarning("Warning", "Please select at least one nurse")
             return
         
         try:
@@ -411,24 +464,36 @@ class NurseModule:
             arrival_datetime = datetime.strptime(arrival_datetime_str, "%Y-%m-%d %I:%M %p")
             leave_datetime = datetime.strptime(leave_datetime_str, "%Y-%m-%d %I:%M %p")
 
-            hours = calculate_hours(arrival_datetime, leave_datetime)
-
             patient_text = self.shift_patient_var.get()
             if not patient_text:
                 messagebox.showerror("Error", "Please select a patient")
                 return
             patient_id = int(patient_text.split(":")[0])
 
+            hours = calculate_hours(arrival_datetime, leave_datetime)
+            
             conn = sqlite3.connect("db/nurses.db")
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO nurse_shifts (nurse_id, patient_id, arrival_datetime, leave_datetime)
-                VALUES (?, ?, ?, ?)
-            """, (self.current_nurse_id, patient_id, arrival_datetime, leave_datetime))
+            
+            success_count = 0
+            fail_count = 0
+
+            for nurse_id in selected_nurses:
+                if self.check_shift_overlap(nurse_id, arrival_datetime, leave_datetime):
+                    print(f"Shift overlap for nurse ID {nurse_id}")
+                    fail_count += 1
+                    continue
+
+                cursor.execute("""
+                    INSERT INTO nurse_shifts (nurse_id, patient_id, arrival_datetime, leave_datetime)
+                    VALUES (?, ?, ?, ?)
+                """, (nurse_id, patient_id, arrival_datetime, leave_datetime))
+                success_count += 1
+            
             conn.commit()
             conn.close()
 
-            messagebox.showinfo("Success", f"Shift added successfully ({hours} hours)")
+            messagebox.showinfo("Success", f"Shifts added for {success_count} nurses. Failed for {fail_count} nurses. ({hours} hours each)")
 
             # Clear fields
             self.arrival_time_var.set("")
@@ -442,9 +507,10 @@ class NurseModule:
             print(f"Error: Failed to add shift: {e}")
     
     def add_intervention(self):
-        """Add intervention for selected nurse"""
-        if not hasattr(self, 'current_nurse_id'):
-            messagebox.showwarning("Warning", "Please select a nurse first")
+        """Add intervention for selected nurse(s)"""
+        selected_nurses = self.get_selected_nurses()
+        if not selected_nurses:
+            messagebox.showwarning("Warning", "Please select at least one nurse")
             return
         
         date = self.intervention_date_var.get().strip()
@@ -478,12 +544,13 @@ class NurseModule:
         conn = sqlite3.connect("db/nurses.db")
         cursor = conn.cursor()
         try:
-            cursor.execute("""
-                INSERT INTO nurse_interventions (nurse_id, patient_id, date, intervention_id)
-                VALUES (?, ?, ?, ?)
-            """, (self.current_nurse_id, patient_id, date, intervention_id))
+            for nurse_id in selected_nurses:
+                cursor.execute("""
+                    INSERT INTO nurse_interventions (nurse_id, patient_id, date, intervention_id)
+                    VALUES (?, ?, ?, ?)
+                """, (nurse_id, patient_id, date, intervention_id))
             conn.commit()
-            messagebox.showinfo("Success", "Intervention added successfully")
+            messagebox.showinfo("Success", f"Intervention added for {len(selected_nurses)} nurses successfully")
             
             # Clear field
             self.intervention_var.set("")
@@ -495,9 +562,11 @@ class NurseModule:
     
     def calculate_salary(self):
         """Calculate salary for selected nurse"""
-        if not hasattr(self, 'current_nurse_id'):
-            messagebox.showwarning("Warning", "Please select a nurse first")
+        selected_nurses = self.get_selected_nurses()
+        if len(selected_nurses) != 1:
+            messagebox.showwarning("Warning", "Please select exactly one nurse to calculate salary")
             return
+        self.current_nurse_id = selected_nurses[0]
 
         try:
             month = int(self.month_var.get())
@@ -531,9 +600,11 @@ Total Salary: {format_currency(salary_details['total_salary'])}
     
     def export_salary_sheet(self, export_format):
         """Export salary sheet for selected nurse"""
-        if not hasattr(self, 'current_nurse_id'):
-            messagebox.showwarning("Warning", "Please select a nurse first")
+        selected_nurses = self.get_selected_nurses()
+        if len(selected_nurses) != 1:
+            messagebox.showwarning("Warning", "Please select exactly one nurse to export salary sheet")
             return
+        self.current_nurse_id = selected_nurses[0]
 
         try:
             month = int(self.month_var.get())

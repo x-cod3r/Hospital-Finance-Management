@@ -142,20 +142,21 @@ def setup_patients_db():
         CREATE TABLE IF NOT EXISTS patients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            icu_type TEXT NOT NULL, -- 'ICU' or 'Medium_ICU'
             admission_date DATE NOT NULL,
             discharge_date DATE,
-            package_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
+    # Drop old tables if they exist for migration
+    cursor.execute("DROP TABLE IF EXISTS patient_packages")
+
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS patient_packages (
+        CREATE TABLE IF NOT EXISTS patient_stays (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             patient_id INTEGER,
-            package_type TEXT NOT NULL, -- 'default' or 'custom'
-            items TEXT, -- JSON string of items
+            stay_date DATE NOT NULL,
+            care_level_id INTEGER,
             FOREIGN KEY (patient_id) REFERENCES patients (id)
         )
     ''')
@@ -255,21 +256,15 @@ def setup_items_db():
         )
     ''')
     
+    # Drop old tables if they exist for migration
+    cursor.execute("DROP TABLE IF EXISTS packages")
+    cursor.execute("DROP TABLE IF EXISTS package_items")
+
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS packages (
+        CREATE TABLE IF NOT EXISTS care_levels (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            icu_type TEXT NOT NULL, -- 'ICU' or 'Medium_ICU'
+            name TEXT NOT NULL UNIQUE,
             daily_rate REAL NOT NULL
-        )
-    ''')
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS package_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            package_id INTEGER,
-            item_id INTEGER,
-            FOREIGN KEY (package_id) REFERENCES packages (id)
         )
     ''')
     
@@ -299,43 +294,21 @@ def setup_items_db():
             default_items
         )
     
-    # Insert default packages if table is empty
-    cursor.execute("SELECT COUNT(*) FROM packages")
+    # Insert default care levels if table is empty
+    cursor.execute("SELECT COUNT(*) FROM care_levels")
     count = cursor.fetchone()[0]
     
     if count == 0:
-        # Default packages
-        cursor.execute(
-            "INSERT INTO packages (name, icu_type, daily_rate) VALUES (?, ?, ?)",
-            ("Basic ICU Package", "ICU", 1500.0)
+        default_levels = [
+            ("ICU", 2000.0),
+            ("Intermediate ICU", 1500.0),
+            ("Ward", 1000.0),
+            ("Special Nurse", 800.0)
+        ]
+        cursor.executemany(
+            "INSERT INTO care_levels (name, daily_rate) VALUES (?, ?)",
+            default_levels
         )
-        
-        cursor.execute(
-            "INSERT INTO packages (name, icu_type, daily_rate) VALUES (?, ?, ?)",
-            ("Basic Medium ICU Package", "Medium_ICU", 1000.0)
-        )
-        
-        # Get package IDs
-        cursor.execute("SELECT id FROM packages WHERE icu_type = 'ICU'")
-        icu_package_id = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT id FROM packages WHERE icu_type = 'Medium_ICU'")
-        medium_icu_package_id = cursor.fetchone()[0]
-        
-        # Link items to packages
-        # For ICU package, link first 6 items
-        for i in range(1, 7):
-            cursor.execute(
-                "INSERT INTO package_items (package_id, item_id) VALUES (?, ?)",
-                (icu_package_id, i)
-            )
-        
-        # For Medium ICU package, link first 3 items
-        for i in range(1, 4):
-            cursor.execute(
-                "INSERT INTO package_items (package_id, item_id) VALUES (?, ?)",
-                (medium_icu_package_id, i)
-            )
     
     conn.commit()
     conn.close()
