@@ -11,20 +11,26 @@ class ShiftsHandler:
         self.parent = doctor_module.parent
 
     def check_shift_overlap(self, doctor_id, arrival_datetime, leave_datetime):
-        """Check for overlapping shifts"""
+        """Check for overlapping shifts with a 20-minute tolerance."""
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT * FROM doctor_shifts
-            WHERE doctor_id = ? AND (
-                (arrival_datetime <= ? AND leave_datetime >= ?) OR
-                (arrival_datetime <= ? AND leave_datetime >= ?) OR
-                (arrival_datetime >= ? AND leave_datetime <= ?)
-            )
-        """, (doctor_id, arrival_datetime, arrival_datetime, leave_datetime, leave_datetime, arrival_datetime, leave_datetime))
-        overlap = cursor.fetchone()
+        cursor.execute("SELECT arrival_datetime, leave_datetime FROM doctor_shifts WHERE doctor_id = ?", (doctor_id,))
+        existing_shifts = cursor.fetchall()
         conn.close()
-        return overlap is not None
+
+        for existing_arrival_str, existing_leave_str in existing_shifts:
+            existing_arrival = datetime.strptime(existing_arrival_str, "%Y-%m-%d %H:%M:%S")
+            existing_leave = datetime.strptime(existing_leave_str, "%Y-%m-%d %H:%M:%S")
+
+            overlap_start = max(arrival_datetime, existing_arrival)
+            overlap_end = min(leave_datetime, existing_leave)
+
+            if overlap_start < overlap_end:
+                overlap_duration = overlap_end - overlap_start
+                if overlap_duration.total_seconds() / 60 > 20:
+                    return True  # Overlap is more than 20 minutes
+        
+        return False # No overlap or overlap is within tolerance
 
     def add_shift(self):
         """Add shift for selected doctors"""
