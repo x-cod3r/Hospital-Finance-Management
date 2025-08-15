@@ -1,6 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import sqlite3
+from ..utils import show_error_message
 
 class EquipmentManagementHandler:
     def __init__(self, settings_module):
@@ -107,13 +108,13 @@ class EquipmentManagementHandler:
             new_price = price_var.get().strip()
 
             if not new_name or not new_price:
-                messagebox.showerror("Error", "All fields are required.")
+                show_error_message("Error", "All fields are required.")
                 return
 
             try:
                 new_price = float(new_price)
             except ValueError:
-                messagebox.showerror("Error", "Price must be a number.")
+                show_error_message("Error", "Price must be a number.")
                 return
 
             conn = sqlite3.connect("db/items.db")

@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from tkcalendar import DateEntry
+from ..utils import show_error_message
 
 class PatientCRUD:
     def __init__(self, patient_module):
@@ -94,11 +95,11 @@ class PatientCRUD:
             admission_date = admission_entry.get_date().strftime('%Y-%m-%d')
             
             if not name:
-                messagebox.showerror("Error", "Please enter a patient name")
+                show_error_message("Error", "Please enter a patient name")
                 return
             
             if not admission_date:
-                messagebox.showerror("Error", "Please enter an admission date")
+                show_error_message("Error", "Please enter an admission date")
                 return
             
             conn = sqlite3.connect("db/patients.db")
@@ -111,7 +112,7 @@ class PatientCRUD:
                 self.load_patients()
                 self.patient_module._refresh_other_modules()
             except sqlite3.Error as e:
-                messagebox.showerror("Error", f"Failed to add patient: {e}")
+                show_error_message("Error", f"Failed to add patient: {e}")
             finally:
                 conn.close()
         
@@ -171,11 +172,11 @@ class PatientCRUD:
             discharge_date = discharge_entry.get_date().strftime('%Y-%m-%d') if discharge_entry.get() else None
             
             if not name:
-                messagebox.showerror("Error", "Please enter a patient name")
+                show_error_message("Error", "Please enter a patient name")
                 return
             
             if not admission_date:
-                messagebox.showerror("Error", "Please enter an admission date")
+                show_error_message("Error", "Please enter an admission date")
                 return
             
             conn = sqlite3.connect("db/patients.db")
@@ -192,7 +193,7 @@ class PatientCRUD:
                 self.patient_module.admission_date_var.set(admission_date)
                 self.patient_module.discharge_date_var.set(discharge_date or "")
             except sqlite3.Error as e:
-                messagebox.showerror("Error", f"Failed to update patient: {e}")
+                show_error_message("Error", f"Failed to update patient: {e}")
             finally:
                 conn.close()
         
@@ -227,6 +228,6 @@ class PatientCRUD:
             self.patient_module._refresh_other_modules()
             self.on_patient_select()
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to delete patient: {e}")
+            show_error_message("Error", f"Failed to delete patient: {e}")
         finally:
             conn.close()

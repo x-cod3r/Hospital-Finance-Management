@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
+from ..utils import show_error_message
 from ..utils import format_currency
 
 class DoctorCRUD:
@@ -77,11 +78,11 @@ class DoctorCRUD:
             try:
                 rate = float(rate_entry.get())
             except ValueError:
-                messagebox.showerror("Error", "Please enter a valid hourly rate")
+                show_error_message("Error", "Please enter a valid hourly rate")
                 return
             
             if not name:
-                messagebox.showerror("Error", "Please enter a doctor name")
+                show_error_message("Error", "Please enter a doctor name")
                 return
             
             conn = sqlite3.connect("db/doctors.db")
@@ -93,7 +94,7 @@ class DoctorCRUD:
                 add_window.destroy()
                 self.load_doctors()
             except sqlite3.Error as e:
-                messagebox.showerror("Error", f"Failed to add doctor: {e}")
+                show_error_message("Error", f"Failed to add doctor: {e}")
             finally:
                 conn.close()
         
@@ -142,11 +143,11 @@ class DoctorCRUD:
             try:
                 rate = float(rate_entry.get())
             except ValueError:
-                messagebox.showerror("Error", "Please enter a valid hourly rate")
+                show_error_message("Error", "Please enter a valid hourly rate")
                 return
             
             if not name:
-                messagebox.showerror("Error", "Please enter a doctor name")
+                show_error_message("Error", "Please enter a doctor name")
                 return
             
             conn = sqlite3.connect("db/doctors.db")
@@ -161,7 +162,7 @@ class DoctorCRUD:
                 self.doctor_module.name_var.set(name)
                 self.doctor_module.rate_var.set(format_currency(rate))
             except sqlite3.Error as e:
-                messagebox.showerror("Error", f"Failed to update doctor: {e}")
+                show_error_message("Error", f"Failed to update doctor: {e}")
             finally:
                 conn.close()
         
@@ -197,6 +198,6 @@ class DoctorCRUD:
             if hasattr(self.doctor_module, 'current_doctor_id'):
                 delattr(self.doctor_module, 'current_doctor_id')
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to delete doctor: {e}")
+            show_error_message("Error", f"Failed to delete doctor: {e}")
         finally:
             conn.close()

@@ -1,8 +1,8 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import sqlite3
 from datetime import datetime
-from ..utils import format_currency
+from ..utils import format_currency, show_error_message
 
 class ItemsHandler:
     def __init__(self, patient_module):
@@ -121,7 +121,7 @@ class ItemsHandler:
         
         item_text = category_vars['item'].get()
         if not item_text:
-            messagebox.showerror("Error", "Please select an item")
+            show_error_message("Error", "Please select an item")
             return
         
         item_name = item_text.split(" (")[0]
@@ -134,18 +134,18 @@ class ItemsHandler:
                 break
         
         if not item_id:
-            messagebox.showerror("Error", "Invalid item selected")
+            show_error_message("Error", "Invalid item selected")
             return
         
         date = category_vars['date'].get().strip()
         try:
             quantity = int(category_vars['quantity'].get())
         except ValueError:
-            messagebox.showerror("Error", "Please enter a valid quantity")
+            show_error_message("Error", "Please enter a valid quantity")
             return
         
         if not date:
-            messagebox.showerror("Error", "Please enter a date")
+            show_error_message("Error", "Please enter a date")
             return
         
         conn = sqlite3.connect("db/patients.db")
@@ -170,7 +170,7 @@ class ItemsHandler:
                 category_vars['item'].set("")
             category_vars['quantity'].set("1")
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to add item: {e}")
+            show_error_message("Error", f"Failed to add item: {e}")
         finally:
             conn.close()
 
@@ -203,6 +203,6 @@ class ItemsHandler:
             
             self.load_category_items(category)
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to remove item: {e}")
+            show_error_message("Error", f"Failed to remove item: {e}")
         finally:
             conn.close()

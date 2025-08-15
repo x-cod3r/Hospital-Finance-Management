@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
-from .utils import format_currency
+from .utils import format_currency, show_error_message
 from .company.reporting import ReportingHandler
 
 class CompanyModule:
@@ -80,7 +80,7 @@ class CompanyModule:
             datetime.strptime(from_date, "%Y-%m-%d")
             datetime.strptime(to_date, "%Y-%m-%d")
         except ValueError:
-            messagebox.showerror("Error", "Please enter valid dates (YYYY-MM-DD)")
+            show_error_message("Error", "Please enter valid dates (YYYY-MM-DD)")
             print("Error: Please enter valid dates (YYYY-MM-DD)")
             return
         
@@ -169,5 +169,5 @@ Net Profit/Loss: {format_currency(net_profit)}
             workbook.save(filename)
             messagebox.showinfo("Export Success", f"Report exported to {filename}")
         except Exception as e:
-            messagebox.showerror("Export Error", f"Failed to export report: {e}")
+            show_error_message("Export Error", f"Failed to export report: {e}")
             print(f"Export Error: Failed to export report: {e}")

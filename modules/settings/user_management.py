@@ -1,6 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 from modules.auth import AuthModule
+from modules.utils import show_error_message
 
 class UserManagementHandler:
     def __init__(self, settings_module):
@@ -64,7 +65,7 @@ class UserManagementHandler:
             messagebox.showinfo("Success", f"User '{username}' deleted successfully")
             self.load_users()
         else:
-            messagebox.showerror("Error", "Failed to delete user")
+            show_error_message("Error", "Failed to delete user")
 
     def create_user(self):
         """Create a new user"""
@@ -72,7 +73,7 @@ class UserManagementHandler:
         password = self.new_password_var.get().strip()
         
         if not username or not password:
-            messagebox.showerror("Error", "Please enter both username and password")
+            show_error_message("Error", "Please enter both username and password")
             return
         
         if self.auth_module.create_user(username, password, "admin"):
@@ -82,4 +83,4 @@ class UserManagementHandler:
             self.new_username_var.set("")
             self.new_password_var.set("")
         else:
-            messagebox.showerror("Error", "Failed to create user (username may already exist)")
+            show_error_message("Error", "Failed to create user (username may already exist)")

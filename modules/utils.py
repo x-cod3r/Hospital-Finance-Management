@@ -1,6 +1,21 @@
 import sqlite3
 import os
 from datetime import datetime
+import configparser
+from tkinter import messagebox
+import traceback
+
+def show_error_message(title, message):
+    """Display an error message box, with traceback in debug mode."""
+    config = configparser.ConfigParser()
+    config.read('Config/config.ini')
+    debug_mode = config.getboolean('DEBUG', 'debugmode', fallback=False)
+
+    if debug_mode:
+        messagebox.showerror(title, f"{message}\n\nCheck the terminal for more details.")
+        traceback.print_exc()
+    else:
+        messagebox.showerror(title, message)
 
 def setup_database():
     """Setup all required databases"""
@@ -81,6 +96,23 @@ def setup_nurses_db():
     """Setup nurses database"""
     conn = sqlite3.connect("db/nurses.db")
     cursor = conn.cursor()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS nurse_levels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            level_name TEXT NOT NULL UNIQUE,
+            hourly_rate REAL NOT NULL
+        )
+    ''')
+
+    # Insert default levels if table is empty
+    cursor.execute("SELECT COUNT(*) FROM nurse_levels")
+    if cursor.fetchone()[0] == 0:
+        default_levels = [
+            ('ICU', 80.0),
+            ('Medium_ICU', 60.0)
+        ]
+        cursor.executemany("INSERT INTO nurse_levels (level_name, hourly_rate) VALUES (?, ?)", default_levels)
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS nurses (
@@ -102,6 +134,12 @@ def setup_nurses_db():
             FOREIGN KEY (nurse_id) REFERENCES nurses (id)
         )
     ''')
+
+    # Add nurse_level_id column to nurse_shifts if it doesn't exist
+    cursor.execute("PRAGMA table_info(nurse_shifts)")
+    columns = [info[1] for info in cursor.fetchall()]
+    if 'nurse_level_id' not in columns:
+        cursor.execute('ALTER TABLE nurse_shifts ADD COLUMN nurse_level_id INTEGER REFERENCES nurse_levels(id)')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS nurse_interventions (

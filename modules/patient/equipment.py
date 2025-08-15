@@ -1,8 +1,8 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import sqlite3
 from tkcalendar import DateEntry
-from ..utils import format_currency
+from ..utils import format_currency, show_error_message
 
 class EquipmentHandler:
     def __init__(self, patient_module):
@@ -65,7 +65,7 @@ class EquipmentHandler:
         selected_equipment_text = self.equipment_var.get()
         
         if not start_date or not selected_equipment_text:
-            messagebox.showerror("Error", "Please select a date and equipment.")
+            show_error_message("Error", "Please select a date and equipment.")
             return
 
         equipment_id = None
@@ -77,7 +77,7 @@ class EquipmentHandler:
                 break
         
         if not equipment_id:
-            messagebox.showerror("Error", "Invalid equipment selected.")
+            show_error_message("Error", "Invalid equipment selected.")
             return
 
         conn = sqlite3.connect("db/patients.db")
@@ -91,7 +91,7 @@ class EquipmentHandler:
             if len(selected_patients) == 1:
                 self.load_patient_equipment()
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to add equipment: {e}")
+            show_error_message("Error", f"Failed to add equipment: {e}")
         finally:
             conn.close()
 
@@ -112,7 +112,7 @@ class EquipmentHandler:
                 messagebox.showinfo("Success", "Equipment removed successfully.")
                 self.load_patient_equipment()
             except sqlite3.Error as e:
-                messagebox.showerror("Error", f"Failed to remove equipment: {e}")
+                show_error_message("Error", f"Failed to remove equipment: {e}")
             finally:
                 conn.close()
 
@@ -189,6 +189,6 @@ class EquipmentHandler:
             self.patient_module.stays_handler.load_stays()
             self.load_patient_equipment()
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to confirm stay: {e}")
+            show_error_message("Error", f"Failed to confirm stay: {e}")
         finally:
             conn.close()

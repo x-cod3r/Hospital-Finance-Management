@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
+from ..utils import show_error_message
 
 class InterventionsHandler:
     def __init__(self, nurse_module):
@@ -28,7 +29,7 @@ class InterventionsHandler:
         intervention_name = self.nurse_module.intervention_var.get().strip()
         
         if not date or not intervention_name:
-            messagebox.showerror("Error", "Please select date and intervention")
+            show_error_message("Error", "Please select date and intervention")
             return
         
         conn = sqlite3.connect("db/interventions.db")
@@ -38,14 +39,14 @@ class InterventionsHandler:
         conn.close()
         
         if not intervention:
-            messagebox.showerror("Error", "Invalid intervention selected")
+            show_error_message("Error", "Invalid intervention selected")
             return
         
         intervention_id = intervention[0]
 
         patient_text = self.nurse_module.intervention_patient_var.get()
         if not patient_text:
-            messagebox.showerror("Error", "Please select a patient")
+            show_error_message("Error", "Please select a patient")
             return
         patient_id = int(patient_text.split(":")[0])
         
@@ -62,6 +63,6 @@ class InterventionsHandler:
             
             self.nurse_module.intervention_var.set("")
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to add intervention: {e}")
+            show_error_message("Error", f"Failed to add intervention: {e}")
         finally:
             conn.close()

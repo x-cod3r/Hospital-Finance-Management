@@ -1,8 +1,8 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import sqlite3
 from tkcalendar import DateEntry
-from ..utils import format_currency
+from ..utils import format_currency, show_error_message
 
 class StaysHandler:
     def __init__(self, patient_module):
@@ -60,7 +60,7 @@ class StaysHandler:
         selected_level_text = self.stay_care_level_var.get()
         
         if not stay_date or not selected_level_text:
-            messagebox.showerror("Error", "Please select a date and care level.")
+            show_error_message("Error", "Please select a date and care level.")
             return
 
         care_level_id = None
@@ -70,7 +70,7 @@ class StaysHandler:
                 break
         
         if not care_level_id:
-            messagebox.showerror("Error", "Invalid care level selected.")
+            show_error_message("Error", "Invalid care level selected.")
             return
 
         self.patient_module.switch_to_equipment_tab_for_stay(stay_date, care_level_id)
@@ -94,7 +94,7 @@ class StaysHandler:
                 messagebox.showinfo("Success", "Stay record removed successfully.")
                 self.load_stays()
             except sqlite3.Error as e:
-                messagebox.showerror("Error", f"Failed to remove stay: {e}")
+                show_error_message("Error", f"Failed to remove stay: {e}")
             finally:
                 conn.close()
 

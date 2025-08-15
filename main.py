@@ -3,13 +3,14 @@ from tkinter import ttk, messagebox
 import sqlite3
 import traceback
 import os
+import configparser
 from modules.auth import AuthModule
 from modules.doctor_module import DoctorModule
 from modules.nurse_module import NurseModule
 from modules.patient_module import PatientModule
 from modules.company_module import CompanyModule
 from modules.settings_module import SettingsModule
-from modules.utils import setup_database
+from modules.utils import setup_database, show_error_message
 
 class ICUManagementApp:
     def __init__(self, root):
@@ -17,6 +18,11 @@ class ICUManagementApp:
         self.root.title("ICU Management System")
         self.root.geometry("350x420")
         
+        # Read configuration
+        self.config = configparser.ConfigParser()
+        self.config.read('Config/config.ini')
+        self.debug_mode = self.config.getboolean('DEBUG', 'debugmode', fallback=False)
+
         # Setup databases
         setup_database()
         
@@ -96,7 +102,7 @@ class ICUManagementApp:
         if self.auth_module.authenticate(username, password):
             self.show_main_interface()
         else:
-            messagebox.showerror("Login Failed", "Invalid username or password")
+            show_error_message("Login Failed", "Invalid username or password")
             print("Login Failed: Invalid username or password")
     
     def show_main_interface(self):
@@ -143,13 +149,16 @@ class ICUManagementApp:
         """Show about dialog"""
         messagebox.showinfo("About", "ICU Management System v1.0\n\nDeveloped for healthcare management")
 
-def handle_exception(exc_type, exc_value, exc_traceback):
+def handle_exception(exc_type, exc_value, exc_traceback, debug_mode):
     """Handle uncaught exceptions"""
-    messagebox.showerror("Error", "An unexpected error occurred. Please check the terminal for details.")
-    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    if debug_mode:
+        show_error_message("Error", "An unexpected error occurred. Please check the terminal for details.")
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
+    else:
+        show_error_message("Error", "An unexpected error occurred.")
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.report_callback_exception = handle_exception
     app = ICUManagementApp(root)
+    root.report_callback_exception = lambda exc_type, exc_value, exc_traceback: handle_exception(exc_type, exc_value, exc_traceback, app.debug_mode)
     root.mainloop()

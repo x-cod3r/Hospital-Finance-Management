@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
+from ..utils import show_error_message
 from ..utils import calculate_hours
 
 class ShiftsHandler:
@@ -42,7 +43,7 @@ class ShiftsHandler:
             leave_ampm = self.doctor_module.leave_ampm_var.get()
 
             if not all([arrival_date_str, arrival_time_str, leave_date_str, leave_time_str]):
-                messagebox.showerror("Error", "Please fill in all shift details")
+                show_error_message("Error", "Please fill in all shift details")
                 return
 
             arrival_datetime_str = f"{arrival_date_str} {arrival_time_str} {arrival_ampm}"
@@ -53,7 +54,7 @@ class ShiftsHandler:
 
             patient_text = self.doctor_module.shift_patient_var.get()
             if not patient_text:
-                messagebox.showerror("Error", "Please select a patient")
+                show_error_message("Error", "Please select a patient")
                 return
             patient_id = int(patient_text.split(":")[0])
 
@@ -85,9 +86,9 @@ class ShiftsHandler:
             self.doctor_module.leave_time_var.set("")
 
         except ValueError:
-            messagebox.showerror("Error", "Invalid date or time format. Please use YYYY-MM-DD and HH:MM.")
+            show_error_message("Error", "Invalid date or time format. Please use YYYY-MM-DD and HH:MM.")
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to add shift: {e}")
+            show_error_message("Error", f"Failed to add shift: {e}")
 
     def remove_shift(self):
         """Remove selected shift"""
@@ -114,4 +115,4 @@ class ShiftsHandler:
             messagebox.showinfo("Success", "Shift(s) removed successfully")
 
         except sqlite3.Error as e:
-            messagebox.showerror("Error", f"Failed to remove shift: {e}")
+            show_error_message("Error", f"Failed to remove shift: {e}")

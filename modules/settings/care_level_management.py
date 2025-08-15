@@ -1,6 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import sqlite3
+from ..utils import show_error_message
 
 class CareLevelManagementHandler:
     def __init__(self, settings_module):
@@ -88,13 +89,13 @@ class CareLevelManagementHandler:
             new_rate = rate_var.get().strip()
 
             if not new_name or not new_rate:
-                messagebox.showerror("Error", "All fields are required.")
+                show_error_message("Error", "All fields are required.")
                 return
 
             try:
                 new_rate = float(new_rate)
             except ValueError:
-                messagebox.showerror("Error", "Rate must be a number.")
+                show_error_message("Error", "Rate must be a number.")
                 return
 
             conn = sqlite3.connect("db/items.db")

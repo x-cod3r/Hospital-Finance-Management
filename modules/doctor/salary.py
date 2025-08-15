@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import openpyxl
-from ..utils import format_currency, calculate_salary_details, export_to_pdf
+from ..utils import format_currency, calculate_salary_details, export_to_pdf, show_error_message
 
 class SalaryHandler:
     def __init__(self, doctor_module):
@@ -22,7 +22,7 @@ class SalaryHandler:
         salary_details = calculate_salary_details("doctor", self.doctor_module.current_doctor_id, start_date, end_date)
 
         if not salary_details:
-            messagebox.showerror("Error", "Could not calculate salary.")
+            show_error_message("Error", "Could not calculate salary.")
             return
 
         result_text = f"""
@@ -53,7 +53,7 @@ Total Salary: {format_currency(salary_details['total_salary'])}
         salary_details = calculate_salary_details("doctor", self.doctor_module.current_doctor_id, start_date, end_date)
 
         if not salary_details:
-            messagebox.showerror("Error", "Could not export salary sheet.")
+            show_error_message("Error", "Could not export salary sheet.")
             return
 
         filename = f"{salary_details['name']}_salary_{start_date}_to_{end_date}.{export_format}"
@@ -88,7 +88,7 @@ Total Salary: {format_currency(salary_details['total_salary'])}
                 workbook.save(filename)
                 messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
             except Exception as e:
-                messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")
+                show_error_message("Export Error", f"Failed to export salary sheet: {e}")
         elif export_format == 'pdf':
             data = [
                 "Doctor Salary Sheet",
@@ -106,4 +106,4 @@ Total Salary: {format_currency(salary_details['total_salary'])}
                 export_to_pdf(filename, data)
                 messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
             except Exception as e:
-                messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")
+                show_error_message("Export Error", f"Failed to export salary sheet: {e}")

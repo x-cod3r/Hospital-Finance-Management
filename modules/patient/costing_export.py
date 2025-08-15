@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
 import openpyxl
-from ..utils import format_currency, calculate_hours
+from ..utils import format_currency, calculate_hours, show_error_message
 
 class CostingExportHandler:
     def __init__(self, patient_module):
@@ -109,7 +109,7 @@ class CostingExportHandler:
             workbook.save(filename)
             messagebox.showinfo("Export Success", f"Cost sheet exported to {filename}")
         except Exception as e:
-            messagebox.showerror("Export Error", f"Failed to export cost sheet: {e}")
+            show_error_message("Export Error", f"Failed to export cost sheet: {e}")
 
     def get_equipment_cost_details(self):
         details = {"total_cost": 0.0, "equipment": []}
