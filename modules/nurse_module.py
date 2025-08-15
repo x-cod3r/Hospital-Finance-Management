@@ -61,13 +61,9 @@ class NurseModule:
         ttk.Entry(details_frame, textvariable=self.name_var, state="readonly").grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
         ttk.Label(details_frame, text="Name:").grid(row=0, column=0, sticky=tk.W, pady=2)
         
-        self.level_var = tk.StringVar()
-        ttk.Entry(details_frame, textvariable=self.level_var, state="readonly").grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
-        ttk.Label(details_frame, text="Level:").grid(row=1, column=0, sticky=tk.W, pady=2)
-        
         self.rate_var = tk.StringVar()
-        ttk.Entry(details_frame, textvariable=self.rate_var, state="readonly").grid(row=2, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
-        ttk.Label(details_frame, text="Hourly Rate:").grid(row=2, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(details_frame, textvariable=self.rate_var, state="readonly").grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+        ttk.Label(details_frame, text="Hourly Rate:").grid(row=1, column=0, sticky=tk.W, pady=2)
         
         shift_frame = ttk.LabelFrame(details_frame, text="Shift Tracking", padding="5")
         shift_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
@@ -110,9 +106,9 @@ class NurseModule:
 
         self.nurse_level_var = tk.StringVar()
         self.nurse_level_combo = ttk.Combobox(shift_frame, textvariable=self.nurse_level_var, state="readonly")
-        self.nurse_level_combo['values'] = list(self.shifts_handler.nurse_levels.keys())
         self.nurse_level_combo.grid(row=5, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
         ttk.Label(shift_frame, text="Nurse Level:").grid(row=5, column=0, sticky=tk.W, pady=2)
+        self.load_care_levels()
 
         button_frame = ttk.Frame(shift_frame)
         button_frame.grid(row=6, column=0, columnspan=4, pady=5)
@@ -175,3 +171,12 @@ class NurseModule:
         patient_names = [f"{p[0]}: {p[1]}" for p in patients]
         self.shift_patient_combo['values'] = patient_names
         self.intervention_patient_combo['values'] = patient_names
+
+    def load_care_levels(self):
+        """Load care levels into the nurse level combobox"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM care_levels ORDER BY name")
+        levels = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        self.nurse_level_combo['values'] = levels

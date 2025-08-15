@@ -44,13 +44,11 @@ class NurseCRUD:
             
             if nurse:
                 self.nurse_module.name_var.set(nurse[0])
-                self.nurse_module.level_var.set(nurse[1])
                 self.nurse_module.rate_var.set(format_currency(nurse[2]))
                 self.nurse_module.current_nurse_id = nurse_id
         else:
             if hasattr(self.nurse_module, 'current_nurse_id') and self.nurse_module.current_nurse_id == nurse_id:
                 self.nurse_module.name_var.set("")
-                self.nurse_module.level_var.set("")
                 self.nurse_module.rate_var.set("")
                 delattr(self.nurse_module, 'current_nurse_id')
 
@@ -164,7 +162,6 @@ class NurseCRUD:
                 edit_window.destroy()
                 self.load_nurses()
                 self.nurse_module.name_var.set(name)
-                self.nurse_module.level_var.set(level)
                 self.nurse_module.rate_var.set(format_currency(rate))
             except sqlite3.Error as e:
                 show_error_message("Error", f"Failed to update nurse: {e}")
@@ -199,7 +196,6 @@ class NurseCRUD:
             self.load_nurses()
             
             self.nurse_module.name_var.set("")
-            self.nurse_module.level_var.set("")
             self.nurse_module.rate_var.set("")
             if hasattr(self.nurse_module, 'current_nurse_id'):
                 delattr(self.nurse_module, 'current_nurse_id')

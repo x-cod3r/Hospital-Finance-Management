@@ -83,13 +83,12 @@ class StaysHandler:
             return
 
         if messagebox.askyesno("Confirm", "Are you sure you want to remove this stay record?"):
-            item_data = self.stays_tree.item(selected_item)
-            stay_date = item_data['values'][0]
+            stay_id = selected_item
 
             conn = sqlite3.connect("db/patients.db")
             cursor = conn.cursor()
             try:
-                cursor.execute("DELETE FROM patient_stays WHERE patient_id = ? AND stay_date = ?", (self.patient_module.current_patient_id, stay_date))
+                cursor.execute("DELETE FROM patient_stays WHERE id = ?", (stay_id,))
                 conn.commit()
                 messagebox.showinfo("Success", "Stay record removed successfully.")
                 self.load_stays()
@@ -110,7 +109,7 @@ class StaysHandler:
         cursor = conn.cursor()
         cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
         cursor.execute("""
-            SELECT ps.stay_date, cl.name, cl.daily_rate
+            SELECT ps.id, ps.stay_date, cl.name, cl.daily_rate
             FROM patient_stays ps
             JOIN items_db.care_levels cl ON ps.care_level_id = cl.id
             WHERE ps.patient_id = ?
@@ -118,5 +117,5 @@ class StaysHandler:
         """, (self.patient_module.current_patient_id,))
         
         for row in cursor.fetchall():
-            self.stays_tree.insert("", "end", values=(row[0], row[1], format_currency(row[2])))
+            self.stays_tree.insert("", "end", iid=row[0], values=(row[1], row[2], format_currency(row[3])))
         conn.close()
