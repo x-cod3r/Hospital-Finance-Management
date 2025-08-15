@@ -19,9 +19,16 @@ class ItemManagementHandler:
         notebook.add(interventions_tab, text="Interventions")
         self.setup_interventions_manager(interventions_tab)
 
-        items_tab = ttk.Frame(notebook)
-        notebook.add(items_tab, text="Labs, Drugs, etc.")
-        self.setup_items_manager(items_tab)
+        items_notebook = ttk.Notebook(notebook)
+        notebook.add(items_notebook, text="Billable Items")
+
+        self.categories = ["labs", "drugs", "radiology", "consultations"]
+        self.item_trees = {}
+
+        for category in self.categories:
+            tab = ttk.Frame(items_notebook)
+            items_notebook.add(tab, text=category.capitalize())
+            self.setup_category_manager(tab, category)
 
     def setup_interventions_manager(self, parent):
         """Setup interventions management UI"""
@@ -40,23 +47,23 @@ class ItemManagementHandler:
         ttk.Button(buttons_frame, text="Edit", command=self.edit_intervention).pack(side=tk.LEFT, padx=5)
         ttk.Button(buttons_frame, text="Delete", command=self.delete_intervention).pack(side=tk.LEFT)
 
-    def setup_items_manager(self, parent):
-        """Setup items management UI"""
-        list_frame = ttk.LabelFrame(parent, text="Billable Items", padding="10")
-        list_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, padx=(0, 10))
+    def setup_category_manager(self, parent, category):
+        """Setup UI for a specific item category"""
+        list_frame = ttk.LabelFrame(parent, text=f"{category.capitalize()} Items", padding="10")
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.items_tree = ttk.Treeview(list_frame, columns=("Category", "Name", "Price"), show="headings")
-        self.items_tree.heading("Category", text="Category")
-        self.items_tree.heading("Name", text="Name")
-        self.items_tree.heading("Price", text="Price")
-        self.items_tree.pack(fill=tk.BOTH, expand=True)
-        self.load_items()
+        tree = ttk.Treeview(list_frame, columns=("Name", "Price"), show="headings")
+        tree.heading("Name", text="Name")
+        tree.heading("Price", text="Price")
+        tree.pack(fill=tk.BOTH, expand=True)
+        self.item_trees[category] = tree
+        self.load_items(category)
 
         buttons_frame = ttk.Frame(list_frame)
         buttons_frame.pack(fill=tk.X, pady=(10, 0))
-        ttk.Button(buttons_frame, text="Add", command=self.add_item).pack(side=tk.LEFT)
-        ttk.Button(buttons_frame, text="Edit", command=self.edit_item).pack(side=tk.LEFT, padx=5)
-        ttk.Button(buttons_frame, text="Delete", command=self.delete_item).pack(side=tk.LEFT)
+        ttk.Button(buttons_frame, text="Add", command=lambda c=category: self.add_item(c)).pack(side=tk.LEFT)
+        ttk.Button(buttons_frame, text="Edit", command=lambda c=category: self.edit_item(c)).pack(side=tk.LEFT, padx=5)
+        ttk.Button(buttons_frame, text="Delete", command=lambda c=category: self.delete_item(c)).pack(side=tk.LEFT)
 
     def load_interventions(self):
         """Load interventions into the treeview"""
@@ -144,36 +151,50 @@ class ItemManagementHandler:
 
         ttk.Button(dialog, text="Save", command=save).pack(pady=10)
 
-    def load_items(self):
-        """Load items into the treeview"""
-        for i in self.items_tree.get_children():
-            self.items_tree.delete(i)
-        
+    def load_items(self, category=None):
+        """Load items for a specific category or all categories"""
+        if category:
+            categories_to_load = [category]
+        else:
+            categories_to_load = self.categories
+
         conn = sqlite3.connect("db/items.db")
         cursor = conn.cursor()
-        cursor.execute("SELECT id, category, name, price FROM items ORDER BY category, name")
-        for row in cursor.fetchall():
-            self.items_tree.insert("", "end", values=(row[1], row[2], f"{row[3]:.2f}"), iid=row[0])
+
+        for cat in categories_to_load:
+            tree = self.item_trees.get(cat)
+            if not tree:
+                continue
+            
+            for i in tree.get_children():
+                tree.delete(i)
+            
+            cursor.execute("SELECT id, name, price FROM items WHERE category = ? ORDER BY name", (cat,))
+            for row in cursor.fetchall():
+                tree.insert("", "end", values=(row[1], f"{row[2]:.2f}"), iid=row[0])
+        
         conn.close()
 
-    def add_item(self):
+    def add_item(self, category):
         """Show dialog to add a new item"""
-        self.item_dialog("Add Item")
+        self.item_dialog("Add Item", category=category)
 
-    def edit_item(self):
+    def edit_item(self, category):
         """Show dialog to edit the selected item"""
-        selected_item = self.items_tree.focus()
+        tree = self.item_trees[category]
+        selected_item = tree.focus()
         if not selected_item:
             messagebox.showwarning("Warning", "Please select an item to edit.")
             return
         
-        item = self.items_tree.item(selected_item)
-        category, name, price = item['values']
+        item = tree.item(selected_item)
+        name, price = item['values']
         self.item_dialog("Edit Item", item_id=selected_item, category=category, name=name, price=price)
 
-    def delete_item(self):
+    def delete_item(self, category):
         """Delete the selected item"""
-        selected_item = self.items_tree.focus()
+        tree = self.item_trees[category]
+        selected_item = tree.focus()
         if not selected_item:
             messagebox.showwarning("Warning", "Please select an item to delete.")
             return
@@ -184,7 +205,7 @@ class ItemManagementHandler:
             cursor.execute("DELETE FROM items WHERE id = ?", (selected_item,))
             conn.commit()
             conn.close()
-            self.load_items()
+            self.load_items(category)
             self.settings_module._refresh_other_modules()
 
     def item_dialog(self, title, item_id=None, category="", name="", price=""):
@@ -197,8 +218,8 @@ class ItemManagementHandler:
 
         ttk.Label(dialog, text="Category:").pack(pady=(10, 0))
         category_var = tk.StringVar(value=category)
-        category_combo = ttk.Combobox(dialog, textvariable=category_var, values=["labs", "drugs", "radiology", "consultations"])
-        category_combo.pack(fill=tk.X, padx=10)
+        category_entry = ttk.Entry(dialog, textvariable=category_var, state="readonly")
+        category_entry.pack(fill=tk.X, padx=10)
 
         ttk.Label(dialog, text="Name:").pack(pady=(10, 0))
         name_var = tk.StringVar(value=name)
@@ -231,7 +252,7 @@ class ItemManagementHandler:
                 cursor.execute("INSERT INTO items (category, name, price) VALUES (?, ?, ?)", (new_category, new_name, new_price))
             conn.commit()
             conn.close()
-            self.load_items()
+            self.load_items(new_category)
             self.settings_module._refresh_other_modules()
             dialog.destroy()
 
