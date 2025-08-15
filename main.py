@@ -15,7 +15,7 @@ class ICUManagementApp:
     def __init__(self, root):
         self.root = root
         self.root.title("ICU Management System")
-        self.root.geometry("1200x800")
+        self.root.geometry("350x420")
         
         # Setup databases
         setup_database()
@@ -57,27 +57,30 @@ class ICUManagementApp:
         # Center the frame
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        login_frame.columnconfigure(1, weight=1)
+        login_frame.columnconfigure(0, weight=1) # Left padding column
+        login_frame.columnconfigure(1, weight=0) # Label column
+        login_frame.columnconfigure(2, weight=0) # Entry column
+        login_frame.columnconfigure(3, weight=1) # Right padding column
         login_frame.rowconfigure(2, weight=1)
         
         # Title
         title_label = ttk.Label(login_frame, text="ICU Management System", 
                                font=("Arial", 18, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        title_label.grid(row=0, column=0, columnspan=4, pady=(0, 20))
         
         # Username
-        ttk.Label(login_frame, text="Username:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.username_entry = ttk.Entry(login_frame)
-        self.username_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        ttk.Label(login_frame, text="Username:").grid(row=1, column=1, sticky=tk.W, pady=5)
+        self.username_entry = ttk.Entry(login_frame, width=20)
+        self.username_entry.grid(row=1, column=2, sticky=tk.W, pady=5, padx=(10, 0))
         
         # Password
-        ttk.Label(login_frame, text="Password:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.password_entry = ttk.Entry(login_frame, show="*")
-        self.password_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        ttk.Label(login_frame, text="Password:").grid(row=2, column=1, sticky=tk.W, pady=5)
+        self.password_entry = ttk.Entry(login_frame, show="*", width=20)
+        self.password_entry.grid(row=2, column=2, sticky=tk.W, pady=5, padx=(10, 0))
         
         # Login button
         login_button = ttk.Button(login_frame, text="Login", command=self.login)
-        login_button.grid(row=3, column=0, columnspan=2, pady=20)
+        login_button.grid(row=3, column=0, columnspan=4, pady=20)
         
         # Bind Enter key to login
         self.password_entry.bind("<Return>", lambda event: self.login())
@@ -101,6 +104,8 @@ class ICUManagementApp:
         # Clear any existing widgets
         for widget in self.root.winfo_children():
             widget.destroy()
+        
+        self.root.geometry("1200x700")
         
         # Create notebook for tabs
         notebook = ttk.Notebook(self.root)
