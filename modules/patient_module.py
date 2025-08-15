@@ -7,6 +7,8 @@ from .utils import format_currency
 class PatientModule:
     def __init__(self, parent):
         self.parent = parent
+        self.doctor_module = None
+        self.nurse_module = None
         self.setup_ui()
         self.load_patients()
     
@@ -305,11 +307,14 @@ class PatientModule:
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         
+        # Attach items database
+        cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
+
         table_name = f"patient_{category}"
         cursor.execute(f"""
             SELECT p.date, i.name, p.quantity, i.price
             FROM {table_name} p
-            JOIN items i ON p.item_id = i.id
+            JOIN items_db.items i ON p.item_id = i.id
             WHERE p.patient_id = ?
             ORDER BY p.date
         """, (self.current_patient_id,))
@@ -333,6 +338,7 @@ class PatientModule:
         item_text = self.category_vars['item'].get()
         if not item_text:
             messagebox.showerror("Error", "Please select an item")
+            print("Error: Please select an item")
             return
         
         # Extract item name and find ID
@@ -349,6 +355,7 @@ class PatientModule:
         
         if not item_id:
             messagebox.showerror("Error", "Invalid item selected")
+            print("Error: Invalid item selected")
             return
         
         # Get date and quantity
@@ -357,10 +364,12 @@ class PatientModule:
             quantity = int(self.category_vars['quantity'].get())
         except ValueError:
             messagebox.showerror("Error", "Please enter a valid quantity")
+            print("Error: Please enter a valid quantity")
             return
         
         if not date:
             messagebox.showerror("Error", "Please enter a date")
+            print("Error: Please enter a date")
             return
         
         # Add to database
@@ -384,6 +393,7 @@ class PatientModule:
             self.category_vars['quantity'].set("1")
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to add item: {e}")
+            print(f"Error: Failed to add item: {e}")
         finally:
             conn.close()
     
@@ -464,14 +474,17 @@ class PatientModule:
             
             if not name:
                 messagebox.showerror("Error", "Please enter a patient name")
+                print("Error: Please enter a patient name")
                 return
             
             if not icu_type:
                 messagebox.showerror("Error", "Please select an ICU type")
+                print("Error: Please select an ICU type")
                 return
             
             if not admission_date:
                 messagebox.showerror("Error", "Please enter an admission date")
+                print("Error: Please enter an admission date")
                 return
             
             conn = sqlite3.connect("db/patients.db")
@@ -485,8 +498,10 @@ class PatientModule:
                 messagebox.showinfo("Success", "Patient added successfully")
                 add_window.destroy()
                 self.load_patients()
+                self._refresh_other_modules()
             except sqlite3.Error as e:
                 messagebox.showerror("Error", f"Failed to add patient: {e}")
+                print(f"Error: Failed to add patient: {e}")
             finally:
                 conn.close()
         
@@ -554,14 +569,17 @@ class PatientModule:
             
             if not name:
                 messagebox.showerror("Error", "Please enter a patient name")
+                print("Error: Please enter a patient name")
                 return
             
             if not icu_type:
                 messagebox.showerror("Error", "Please select an ICU type")
+                print("Error: Please select an ICU type")
                 return
             
             if not admission_date:
                 messagebox.showerror("Error", "Please enter an admission date")
+                print("Error: Please enter an admission date")
                 return
             
             conn = sqlite3.connect("db/patients.db")
@@ -576,12 +594,14 @@ class PatientModule:
                 messagebox.showinfo("Success", "Patient updated successfully")
                 edit_window.destroy()
                 self.load_patients()
+                self._refresh_other_modules()
                 self.name_var.set(name)
                 self.icu_type_var.set(icu_type)
                 self.admission_date_var.set(admission_date)
                 self.discharge_date_var.set(discharge_date or "")
             except sqlite3.Error as e:
                 messagebox.showerror("Error", f"Failed to update patient: {e}")
+                print(f"Error: Failed to update patient: {e}")
             finally:
                 conn.close()
         
@@ -617,6 +637,7 @@ class PatientModule:
             
             messagebox.showinfo("Success", "Patient deleted successfully")
             self.load_patients()
+            self._refresh_other_modules()
             
             # Clear details
             self.name_var.set("")
@@ -626,6 +647,7 @@ class PatientModule:
             delattr(self, 'current_patient_id')
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to delete patient: {e}")
+            print(f"Error: Failed to delete patient: {e}")
         finally:
             conn.close()
     
@@ -800,36 +822,47 @@ Total Cost: {format_currency(total_cost)}
         # Calculate total cost
         total_cost = icu_cost + total_category_cost
 
-        # Export to CSV
-        import csv
+        # Export to Excel
+        import openpyxl
         from datetime import datetime as dt
-        filename = f"patient_{self.current_patient_id}_cost_sheet_{dt.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"{name}_cost_sheet_{dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         try:
-            with open(filename, 'w', newline='') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(["Patient Cost Sheet"])
-                writer.writerow([])
-                writer.writerow(["Patient Name:", name])
-                writer.writerow(["ICU Type:", icu_type])
-                writer.writerow(["Admission Date:", admission_date])
-                writer.writerow(["Discharge Date:", discharge_date or 'N/A'])
-                writer.writerow([])
-                writer.writerow(["Cost Breakdown:"])
-                writer.writerow(["ICU Days:", icu_days])
-                writer.writerow(["Daily Rate:", format_currency(daily_rate)])
-                writer.writerow(["ICU Cost:", format_currency(icu_cost)])
-                writer.writerow([])
-                for category in categories:
-                    writer.writerow([f"{category.capitalize()}:", format_currency(category_costs[category])])
-                    # Add itemized details
-                    if category_details[category]:
-                        writer.writerow([f"  Date", "Item", "Quantity", "Price", "Total"])
-                        for item in category_details[category]:
-                            date, item_name, qty, price, total = item
-                            writer.writerow([f"  {date}", item_name, qty, format_currency(price), format_currency(total)])
-                    writer.writerow([]) # Empty row after category
-                writer.writerow(["Total Cost:", format_currency(total_cost)])
+            workbook = openpyxl.Workbook()
+            sheet = workbook.active
+            sheet.title = "Cost Sheet"
 
+            sheet.append(["Patient Cost Sheet"])
+            sheet.append([])
+            sheet.append(["Patient Name:", name])
+            sheet.append(["ICU Type:", icu_type])
+            sheet.append(["Admission Date:", admission_date])
+            sheet.append(["Discharge Date:", discharge_date or 'N/A'])
+            sheet.append([])
+            sheet.append(["Cost Breakdown:"])
+            sheet.append(["ICU Days:", icu_days])
+            sheet.append(["Daily Rate:", format_currency(daily_rate)])
+            sheet.append(["ICU Cost:", format_currency(icu_cost)])
+            sheet.append([])
+            for category in categories:
+                sheet.append([f"{category.capitalize()}:", format_currency(category_costs[category])])
+                # Add itemized details
+                if category_details[category]:
+                    sheet.append(["  Date", "Item", "Quantity", "Price", "Total"])
+                    for item in category_details[category]:
+                        date, item_name, qty, price, total = item
+                        sheet.append([f"  {date}", item_name, qty, format_currency(price), format_currency(total)])
+                sheet.append([]) # Empty row after category
+            sheet.append(["Total Cost:", format_currency(total_cost)])
+
+            workbook.save(filename)
             messagebox.showinfo("Export Success", f"Cost sheet exported to {filename}")
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to export cost sheet: {e}")
+            print(f"Export Error: Failed to export cost sheet: {e}")
+
+    def _refresh_other_modules(self):
+        """Refresh patient lists in other modules."""
+        if self.doctor_module:
+            self.doctor_module.load_patients()
+        if self.nurse_module:
+            self.nurse_module.load_patients()

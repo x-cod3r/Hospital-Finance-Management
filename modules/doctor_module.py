@@ -9,6 +9,7 @@ class DoctorModule:
         self.parent = parent
         self.setup_ui()
         self.load_doctors()
+        self.load_patients()
     
     def setup_ui(self):
         # Main frame
@@ -78,7 +79,12 @@ class DoctorModule:
         self.leave_ampm_var.set("AM")
         ttk.Combobox(shift_frame, textvariable=self.leave_ampm_var, values=["AM", "PM"], width=5).grid(row=3, column=3, sticky=tk.W, pady=2)
         
-        ttk.Button(shift_frame, text="Add Shift", command=self.add_shift).grid(row=4, column=0, columnspan=4, pady=5)
+        ttk.Label(shift_frame, text="Patient:").grid(row=4, column=0, sticky=tk.W, pady=2)
+        self.shift_patient_var = tk.StringVar()
+        self.shift_patient_combo = ttk.Combobox(shift_frame, textvariable=self.shift_patient_var, state="readonly")
+        self.shift_patient_combo.grid(row=4, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+
+        ttk.Button(shift_frame, text="Add Shift", command=self.add_shift).grid(row=5, column=0, columnspan=4, pady=5)
         
         # Interventions
         interventions_frame = ttk.LabelFrame(details_frame, text="Interventions", padding="5")
@@ -96,7 +102,12 @@ class DoctorModule:
         self.intervention_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
         self.load_interventions()
         
-        ttk.Button(interventions_frame, text="Add Intervention", command=self.add_intervention).grid(row=2, column=0, columnspan=2, pady=5)
+        ttk.Label(interventions_frame, text="Patient:").grid(row=2, column=0, sticky=tk.W, pady=2)
+        self.intervention_patient_var = tk.StringVar()
+        self.intervention_patient_combo = ttk.Combobox(interventions_frame, textvariable=self.intervention_patient_var, state="readonly")
+        self.intervention_patient_combo.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=2, padx=(5, 0))
+
+        ttk.Button(interventions_frame, text="Add Intervention", command=self.add_intervention).grid(row=3, column=0, columnspan=2, pady=5)
         
         # Salary calculation
         salary_frame = ttk.LabelFrame(details_frame, text="Salary Calculation", padding="5")
@@ -113,7 +124,7 @@ class DoctorModule:
         ttk.Entry(salary_frame, textvariable=self.year_var, width=8).grid(row=0, column=3, sticky=tk.W, pady=2, padx=(5, 0))
         
         ttk.Button(salary_frame, text="Calculate Salary", command=self.calculate_salary).grid(row=1, column=0, columnspan=2, pady=5)
-        ttk.Button(salary_frame, text="Export as CSV", command=lambda: self.export_salary_sheet('csv')).grid(row=1, column=2, pady=5)
+        ttk.Button(salary_frame, text="Export as Excel", command=lambda: self.export_salary_sheet('xlsx')).grid(row=1, column=2, pady=5)
         ttk.Button(salary_frame, text="Export as PDF", command=lambda: self.export_salary_sheet('pdf')).grid(row=1, column=3, pady=5)
         
         # Configure grid weights
@@ -142,6 +153,19 @@ class DoctorModule:
         conn.close()
         
         self.intervention_combo['values'] = [i[0] for i in interventions]
+
+    def load_patients(self):
+        """Load patients into comboboxes"""
+        conn = sqlite3.connect("db/patients.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name FROM patients ORDER BY name")
+        patients = cursor.fetchall()
+        conn.close()
+        
+        self.patients = patients
+        patient_names = [f"{p[0]}: {p[1]}" for p in patients]
+        self.shift_patient_combo['values'] = patient_names
+        self.intervention_patient_combo['values'] = patient_names
     
     def on_doctor_select(self, event):
         """Handle doctor selection"""
@@ -191,10 +215,12 @@ class DoctorModule:
                 rate = float(rate_entry.get())
             except ValueError:
                 messagebox.showerror("Error", "Please enter a valid hourly rate")
+                print("Error: Please enter a valid hourly rate")
                 return
             
             if not name:
                 messagebox.showerror("Error", "Please enter a doctor name")
+                print("Error: Please enter a doctor name")
                 return
             
             conn = sqlite3.connect("db/doctors.db")
@@ -207,6 +233,7 @@ class DoctorModule:
                 self.load_doctors()
             except sqlite3.Error as e:
                 messagebox.showerror("Error", f"Failed to add doctor: {e}")
+                print(f"Error: Failed to add doctor: {e}")
             finally:
                 conn.close()
         
@@ -259,10 +286,12 @@ class DoctorModule:
                 rate = float(rate_entry.get())
             except ValueError:
                 messagebox.showerror("Error", "Please enter a valid hourly rate")
+                print("Error: Please enter a valid hourly rate")
                 return
             
             if not name:
                 messagebox.showerror("Error", "Please enter a doctor name")
+                print("Error: Please enter a doctor name")
                 return
             
             conn = sqlite3.connect("db/doctors.db")
@@ -278,6 +307,7 @@ class DoctorModule:
                 self.rate_var.set(format_currency(rate))
             except sqlite3.Error as e:
                 messagebox.showerror("Error", f"Failed to update doctor: {e}")
+                print(f"Error: Failed to update doctor: {e}")
             finally:
                 conn.close()
         
@@ -318,9 +348,26 @@ class DoctorModule:
             delattr(self, 'current_doctor_id')
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to delete doctor: {e}")
+            print(f"Error: Failed to delete doctor: {e}")
         finally:
             conn.close()
     
+    def check_shift_overlap(self, doctor_id, arrival_datetime, leave_datetime):
+        """Check for overlapping shifts"""
+        conn = sqlite3.connect("db/doctors.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM doctor_shifts
+            WHERE doctor_id = ? AND (
+                (arrival_datetime <= ? AND leave_datetime >= ?) OR
+                (arrival_datetime <= ? AND leave_datetime >= ?) OR
+                (arrival_datetime >= ? AND leave_datetime <= ?)
+            )
+        """, (doctor_id, arrival_datetime, arrival_datetime, leave_datetime, leave_datetime, arrival_datetime, leave_datetime))
+        overlap = cursor.fetchone()
+        conn.close()
+        return overlap is not None
+
     def add_shift(self):
         """Add shift for selected doctor"""
         if not hasattr(self, 'current_doctor_id'):
@@ -338,6 +385,7 @@ class DoctorModule:
 
             if not all([arrival_date_str, arrival_time_str, leave_date_str, leave_time_str]):
                 messagebox.showerror("Error", "Please fill in all shift details")
+                print("Error: Please fill in all shift details")
                 return
 
             arrival_datetime_str = f"{arrival_date_str} {arrival_time_str} {arrival_ampm}"
@@ -346,14 +394,25 @@ class DoctorModule:
             arrival_datetime = datetime.strptime(arrival_datetime_str, "%Y-%m-%d %I:%M %p")
             leave_datetime = datetime.strptime(leave_datetime_str, "%Y-%m-%d %I:%M %p")
 
+            if self.check_shift_overlap(self.current_doctor_id, arrival_datetime, leave_datetime):
+                messagebox.showerror("Error", "Shift overlaps with an existing shift.")
+                print("Error: Shift overlaps with an existing shift.")
+                return
+
             hours = calculate_hours(arrival_datetime, leave_datetime)
+
+            patient_text = self.shift_patient_var.get()
+            if not patient_text:
+                messagebox.showerror("Error", "Please select a patient")
+                return
+            patient_id = int(patient_text.split(":")[0])
 
             conn = sqlite3.connect("db/doctors.db")
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO doctor_shifts (doctor_id, arrival_datetime, leave_datetime)
-                VALUES (?, ?, ?)
-            """, (self.current_doctor_id, arrival_datetime, leave_datetime))
+                INSERT INTO doctor_shifts (doctor_id, patient_id, arrival_datetime, leave_datetime)
+                VALUES (?, ?, ?, ?)
+            """, (self.current_doctor_id, patient_id, arrival_datetime, leave_datetime))
             conn.commit()
             conn.close()
 
@@ -365,8 +424,10 @@ class DoctorModule:
 
         except ValueError:
             messagebox.showerror("Error", "Invalid date or time format. Please use YYYY-MM-DD and HH:MM.")
+            print("Error: Invalid date or time format. Please use YYYY-MM-DD and HH:MM.")
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to add shift: {e}")
+            print(f"Error: Failed to add shift: {e}")
     
     def add_intervention(self):
         """Add intervention for selected doctor"""
@@ -379,6 +440,7 @@ class DoctorModule:
         
         if not date or not intervention_name:
             messagebox.showerror("Error", "Please select date and intervention")
+            print("Error: Please select date and intervention")
             return
         
         # Get intervention ID
@@ -390,17 +452,24 @@ class DoctorModule:
         
         if not intervention:
             messagebox.showerror("Error", "Invalid intervention selected")
+            print("Error: Invalid intervention selected")
             return
         
         intervention_id = intervention[0]
+
+        patient_text = self.intervention_patient_var.get()
+        if not patient_text:
+            messagebox.showerror("Error", "Please select a patient")
+            return
+        patient_id = int(patient_text.split(":")[0])
         
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                INSERT INTO doctor_interventions (doctor_id, date, intervention_id)
-                VALUES (?, ?, ?)
-            """, (self.current_doctor_id, date, intervention_id))
+                INSERT INTO doctor_interventions (doctor_id, patient_id, date, intervention_id)
+                VALUES (?, ?, ?, ?)
+            """, (self.current_doctor_id, patient_id, date, intervention_id))
             conn.commit()
             messagebox.showinfo("Success", "Intervention added successfully")
             
@@ -408,6 +477,7 @@ class DoctorModule:
             self.intervention_var.set("")
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"Failed to add intervention: {e}")
+            print(f"Error: Failed to add intervention: {e}")
         finally:
             conn.close()
     
@@ -422,12 +492,14 @@ class DoctorModule:
             year = int(self.year_var.get())
         except ValueError:
             messagebox.showerror("Error", "Please enter valid month and year")
+            print("Error: Please enter valid month and year")
             return
 
         salary_details = calculate_salary_details("doctor", self.current_doctor_id, month, year)
 
         if not salary_details:
             messagebox.showerror("Error", "Could not calculate salary.")
+            print("Error: Could not calculate salary.")
             return
 
         # Show results
@@ -457,36 +529,52 @@ Total Salary: {format_currency(salary_details['total_salary'])}
             year = int(self.year_var.get())
         except ValueError:
             messagebox.showerror("Error", "Please enter valid month and year")
+            print("Error: Please enter valid month and year")
             return
 
         salary_details = calculate_salary_details("doctor", self.current_doctor_id, month, year)
 
         if not salary_details:
             messagebox.showerror("Error", "Could not export salary sheet.")
+            print("Error: Could not export salary sheet.")
             return
 
-        filename = f"doctor_{self.current_doctor_id}_salary_{year}_{month:02d}.{export_format}"
+        filename = f"{salary_details['name']}_salary_{year}_{month:02d}.{export_format}"
 
-        if export_format == 'csv':
-            # Export to CSV
-            import csv
+        if export_format == 'xlsx':
+            # Export to Excel
+            import openpyxl
             try:
-                with open(filename, 'w', newline='') as csvfile:
-                    writer = csv.writer(csvfile)
-                    writer.writerow(["Doctor Salary Sheet"])
-                    writer.writerow([])
-                    writer.writerow(["Doctor Name:", salary_details['name']])
-                    writer.writerow(["Period:", f"{month:02d}/{year}"])
-                    writer.writerow([])
-                    writer.writerow(["Total Hours:", f"{salary_details['total_hours']:.2f}"])
-                    writer.writerow(["Hourly Rate:", format_currency(salary_details['hourly_rate'])])
-                    writer.writerow(["Base Salary:", format_currency(salary_details['base_salary'])])
-                    writer.writerow(["Bonus from Interventions:", format_currency(salary_details['total_bonus'])])
-                    writer.writerow(["Total Salary:", format_currency(salary_details['total_salary'])])
+                workbook = openpyxl.Workbook()
+                sheet = workbook.active
+                sheet.title = "Salary Sheet"
 
+                sheet.append(["Doctor Salary Sheet"])
+                sheet.append([])
+                sheet.append(["Doctor Name:", salary_details['name']])
+                sheet.append(["Period:", f"{month:02d}/{year}"])
+                sheet.append([])
+                sheet.append(["Total Hours:", f"{salary_details['total_hours']:.2f}"])
+                sheet.append(["Hourly Rate:", format_currency(salary_details['hourly_rate'])])
+                sheet.append(["Base Salary:", format_currency(salary_details['base_salary'])])
+                sheet.append(["Bonus from Interventions:", format_currency(salary_details['total_bonus'])])
+                sheet.append(["Total Salary:", format_currency(salary_details['total_salary'])])
+                sheet.append([])
+                sheet.append(["Shifts"])
+                sheet.append(["Arrival", "Leave", "Patient", "Hours"])
+                for shift in salary_details['shifts']:
+                    sheet.append([shift['arrival'], shift['leave'], shift['patient'], shift['hours']])
+                sheet.append([])
+                sheet.append(["Interventions"])
+                sheet.append(["Date", "Intervention", "Patient", "Bonus"])
+                for intervention in salary_details['interventions']:
+                    sheet.append([intervention['date'], intervention['name'], intervention['patient'], format_currency(intervention['bonus'])])
+
+                workbook.save(filename)
                 messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")
+                print(f"Export Error: Failed to export salary sheet: {e}")
         elif export_format == 'pdf':
             # Export to PDF
             data = [
@@ -506,3 +594,4 @@ Total Salary: {format_currency(salary_details['total_salary'])}
                 messagebox.showinfo("Export Success", f"Salary sheet exported to {filename}")
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export salary sheet: {e}")
+                print(f"Export Error: Failed to export salary sheet: {e}")

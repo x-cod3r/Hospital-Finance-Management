@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
+import traceback
 import os
 from modules.auth import AuthModule
 from modules.doctor_module import DoctorModule
@@ -93,6 +94,7 @@ class ICUManagementApp:
             self.show_main_interface()
         else:
             messagebox.showerror("Login Failed", "Invalid username or password")
+            print("Login Failed: Invalid username or password")
     
     def show_main_interface(self):
         """Show the main application interface"""
@@ -118,17 +120,27 @@ class ICUManagementApp:
         notebook.add(settings_tab, text="Settings")
         
         # Initialize modules in their respective tabs
-        DoctorModule(doctor_tab)
-        NurseModule(nurse_tab)
-        PatientModule(patient_tab)
-        CompanyModule(company_tab)
-        SettingsModule(settings_tab)
+        doctor_module = DoctorModule(doctor_tab)
+        nurse_module = NurseModule(nurse_tab)
+        patient_module = PatientModule(patient_tab)
+        company_module = CompanyModule(company_tab)
+        settings_module = SettingsModule(settings_tab)
+
+        # Set up module connections
+        patient_module.doctor_module = doctor_module
+        patient_module.nurse_module = nurse_module
     
     def show_about(self):
         """Show about dialog"""
         messagebox.showinfo("About", "ICU Management System v1.0\n\nDeveloped for healthcare management")
 
+def handle_exception(exc_type, exc_value, exc_traceback):
+    """Handle uncaught exceptions"""
+    messagebox.showerror("Error", "An unexpected error occurred. Please check the terminal for details.")
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+
 if __name__ == "__main__":
     root = tk.Tk()
+    root.report_callback_exception = handle_exception
     app = ICUManagementApp(root)
     root.mainloop()

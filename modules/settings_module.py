@@ -188,6 +188,7 @@ class SettingsModule:
             self.load_users()
         else:
             messagebox.showerror("Error", "Failed to delete user")
+            print("Error: Failed to delete user")
     
     def create_user(self):
         """Create a new user"""
@@ -196,6 +197,7 @@ class SettingsModule:
         
         if not username or not password:
             messagebox.showerror("Error", "Please enter both username and password")
+            print("Error: Please enter both username and password")
             return
         
         # Create user
@@ -208,6 +210,7 @@ class SettingsModule:
             self.new_password_var.set("")
         else:
             messagebox.showerror("Error", "Failed to create user (username may already exist)")
+            print("Error: Failed to create user (username may already exist)")
     
     def load_logs(self):
         """Load audit logs"""

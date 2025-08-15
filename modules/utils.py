@@ -40,6 +40,7 @@ def setup_doctors_db():
         CREATE TABLE IF NOT EXISTS doctor_shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             doctor_id INTEGER,
+            patient_id INTEGER,
             arrival_datetime TIMESTAMP,
             leave_datetime TIMESTAMP,
             FOREIGN KEY (doctor_id) REFERENCES doctors (id)
@@ -50,6 +51,7 @@ def setup_doctors_db():
         CREATE TABLE IF NOT EXISTS doctor_interventions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             doctor_id INTEGER,
+            patient_id INTEGER,
             date DATE NOT NULL,
             intervention_id INTEGER,
             FOREIGN KEY (doctor_id) REFERENCES doctors (id),
@@ -94,6 +96,7 @@ def setup_nurses_db():
         CREATE TABLE IF NOT EXISTS nurse_shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nurse_id INTEGER,
+            patient_id INTEGER,
             arrival_datetime TIMESTAMP,
             leave_datetime TIMESTAMP,
             FOREIGN KEY (nurse_id) REFERENCES nurses (id)
@@ -104,6 +107,7 @@ def setup_nurses_db():
         CREATE TABLE IF NOT EXISTS nurse_interventions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nurse_id INTEGER,
+            patient_id INTEGER,
             date DATE NOT NULL,
             intervention_id INTEGER,
             FOREIGN KEY (nurse_id) REFERENCES nurses (id),
@@ -163,8 +167,7 @@ def setup_patients_db():
             date DATE NOT NULL,
             item_id INTEGER,
             quantity INTEGER DEFAULT 1,
-            FOREIGN KEY (patient_id) REFERENCES patients (id),
-            FOREIGN KEY (item_id) REFERENCES items (id)
+            FOREIGN KEY (patient_id) REFERENCES patients (id)
         )
     ''')
     
@@ -175,8 +178,7 @@ def setup_patients_db():
             date DATE NOT NULL,
             item_id INTEGER,
             quantity INTEGER DEFAULT 1,
-            FOREIGN KEY (patient_id) REFERENCES patients (id),
-            FOREIGN KEY (item_id) REFERENCES items (id)
+            FOREIGN KEY (patient_id) REFERENCES patients (id)
         )
     ''')
     
@@ -187,8 +189,7 @@ def setup_patients_db():
             date DATE NOT NULL,
             item_id INTEGER,
             quantity INTEGER DEFAULT 1,
-            FOREIGN KEY (patient_id) REFERENCES patients (id),
-            FOREIGN KEY (item_id) REFERENCES items (id)
+            FOREIGN KEY (patient_id) REFERENCES patients (id)
         )
     ''')
     
@@ -199,8 +200,7 @@ def setup_patients_db():
             date DATE NOT NULL,
             item_id INTEGER,
             quantity INTEGER DEFAULT 1,
-            FOREIGN KEY (patient_id) REFERENCES patients (id),
-            FOREIGN KEY (item_id) REFERENCES items (id)
+            FOREIGN KEY (patient_id) REFERENCES patients (id)
         )
     ''')
     
@@ -269,8 +269,7 @@ def setup_items_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             package_id INTEGER,
             item_id INTEGER,
-            FOREIGN KEY (package_id) REFERENCES packages (id),
-            FOREIGN KEY (item_id) REFERENCES items (id)
+            FOREIGN KEY (package_id) REFERENCES packages (id)
         )
     ''')
     
@@ -363,6 +362,7 @@ def calculate_salary_details(employee_type, employee_id, month, year):
     """Calculate salary details for a given employee"""
     db_name = f"db/{employee_type}s.db"
     interventions_db_name = "db/interventions.db"
+    patients_db_name = "db/patients.db"
 
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
@@ -376,45 +376,67 @@ def calculate_salary_details(employee_type, employee_id, month, year):
 
     name, hourly_rate = employee
 
-    # Calculate total hours
+    # Attach patients database
+    cursor.execute(f"ATTACH DATABASE '{patients_db_name}' AS patients_db")
+
+    # Get detailed shifts
     cursor.execute(f"""
-        SELECT arrival_datetime, leave_datetime FROM {employee_type}_shifts
-        WHERE {employee_type}_id = ? AND
-              strftime('%m', arrival_datetime) = ? AND
-              strftime('%Y', arrival_datetime) = ?
+        SELECT s.arrival_datetime, s.leave_datetime, p.name 
+        FROM {employee_type}_shifts s
+        JOIN patients_db.patients p ON s.patient_id = p.id
+        WHERE s.{employee_type}_id = ? AND
+              strftime('%m', s.arrival_datetime) = ? AND
+              strftime('%Y', s.arrival_datetime) = ?
+    """, (employee_id, f"{month:02d}", str(year)))
+    
+    shifts_data = cursor.fetchall()
+    
+    shifts = []
+    total_hours = 0
+    for arrival, leave, patient_name in shifts_data:
+        arrival_dt = datetime.strptime(arrival, "%Y-%m-%d %H:%M:%S")
+        leave_dt = datetime.strptime(leave, "%Y-%m-%d %H:%M:%S")
+        hours = calculate_hours(arrival_dt, leave_dt)
+        total_hours += hours
+        shifts.append({
+            "arrival": arrival,
+            "leave": leave,
+            "patient": patient_name,
+            "hours": hours
+        })
+
+    # Detach patients database
+    cursor.execute("DETACH DATABASE patients_db")
+    
+    # Attach interventions and patients databases
+    cursor.execute(f"ATTACH DATABASE '{interventions_db_name}' AS interventions_db")
+    cursor.execute(f"ATTACH DATABASE '{patients_db_name}' AS patients_db")
+
+    # Get detailed interventions
+    cursor.execute(f"""
+        SELECT i.name, i.bonus_amount, p.name, di.date
+        FROM {employee_type}_interventions di
+        JOIN interventions_db.interventions i ON di.intervention_id = i.id
+        JOIN patients_db.patients p ON di.patient_id = p.id
+        WHERE di.{employee_type}_id = ? AND
+              strftime('%m', di.date) = ? AND
+              strftime('%Y', di.date) = ?
     """, (employee_id, f"{month:02d}", str(year)))
 
-    shifts = cursor.fetchall()
-    total_hours = sum(calculate_hours(datetime.strptime(shift[0], "%Y-%m-%d %H:%M:%S"),
-                                      datetime.strptime(shift[1], "%Y-%m-%d %H:%M:%S")) for shift in shifts)
+    interventions_data = cursor.fetchall()
+    
+    interventions = []
+    total_bonus = 0
+    for intervention_name, bonus, patient_name, date in interventions_data:
+        total_bonus += bonus
+        interventions.append({
+            "name": intervention_name,
+            "bonus": bonus,
+            "patient": patient_name,
+            "date": date
+        })
 
-    # Get intervention IDs
-    cursor.execute(f"""
-        SELECT intervention_id FROM {employee_type}_interventions
-        WHERE {employee_type}_id = ? AND
-              strftime('%m', date) = ? AND
-              strftime('%Y', date) = ?
-    """, (employee_id, f"{month:02d}", str(year)))
-    intervention_ids = [row[0] for row in cursor.fetchall()]
     conn.close()
-
-    # Calculate total bonus from interventions
-    total_bonus = 0.0
-    if intervention_ids:
-        conn_interventions = sqlite3.connect(interventions_db_name)
-        cursor_interventions = conn_interventions.cursor()
-
-        placeholders = ','.join('?' for _ in intervention_ids)
-        cursor_interventions.execute(f"""
-            SELECT SUM(bonus_amount)
-            FROM interventions
-            WHERE id IN ({placeholders})
-        """, intervention_ids)
-
-        total_bonus_result = cursor_interventions.fetchone()[0]
-        total_bonus = total_bonus_result if total_bonus_result else 0.0
-
-        conn_interventions.close()
 
     # Calculate total salary
     base_salary = total_hours * hourly_rate
@@ -427,6 +449,8 @@ def calculate_salary_details(employee_type, employee_id, month, year):
         "base_salary": base_salary,
         "total_bonus": total_bonus,
         "total_salary": total_salary,
+        "shifts": shifts,
+        "interventions": interventions,
     }
 
 def export_to_pdf(filename, data):

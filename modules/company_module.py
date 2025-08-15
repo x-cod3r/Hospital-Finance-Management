@@ -77,6 +77,7 @@ class CompanyModule:
             datetime.strptime(to_date, "%Y-%m-%d")
         except ValueError:
             messagebox.showerror("Error", "Please enter valid dates (YYYY-MM-DD)")
+            print("Error: Please enter valid dates (YYYY-MM-DD)")
             return
         
         # Clear previous results
@@ -288,11 +289,14 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
                 icu_days = 0
             
             # Get package rate
-            cursor.execute("""
+            conn_items = sqlite3.connect("db/items.db")
+            cursor_items = conn_items.cursor()
+            cursor_items.execute("""
                 SELECT daily_rate FROM packages WHERE icu_type = ?
             """, (icu_type,))
-            package_result = cursor.fetchone()
+            package_result = cursor_items.fetchone()
             daily_rate = package_result[0] if package_result else 0.0
+            conn_items.close()
             
             icu_cost = icu_days * daily_rate
             
@@ -333,5 +337,24 @@ Net Profit/Loss: {format_currency(total_patient_revenue - total_operational_cost
     
     def export_report(self):
         """Export report to file"""
-        # In a real implementation, this would save to a file
-        messagebox.showinfo("Export", "Report exported successfully!\n(In a real implementation, this would create a PDF/Excel file)")
+        report_content = self.results_text.get(1.0, tk.END)
+        if not report_content.strip():
+            messagebox.showwarning("Warning", "Please generate a report first")
+            return
+
+        import openpyxl
+        from datetime import datetime as dt
+        filename = f"company_report_{dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        try:
+            workbook = openpyxl.Workbook()
+            sheet = workbook.active
+            sheet.title = "Company Report"
+
+            for line in report_content.split('\n'):
+                sheet.append([line])
+
+            workbook.save(filename)
+            messagebox.showinfo("Export Success", f"Report exported to {filename}")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export report: {e}")
+            print(f"Export Error: Failed to export report: {e}")
