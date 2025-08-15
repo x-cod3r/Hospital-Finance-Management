@@ -226,6 +226,10 @@ class PatientModule:
     
     def setup_category_tab(self, parent, category):
         """Setup a generic category tab"""
+        # Clear previous widgets
+        for widget in parent.winfo_children():
+            widget.destroy()
+
         # Item selection
         ttk.Label(parent, text=f"Add {category.capitalize()}:").pack(anchor=tk.W, pady=(10, 5))
         
@@ -257,6 +261,7 @@ class PatientModule:
         item_combo['values'] = item_names
         if item_names:
             item_combo.current(0)
+            self.category_vars['item'].set(item_names[0])
         
         # Date
         ttk.Label(item_frame, text="Date:").pack(side=tk.LEFT, padx=(10, 0))
