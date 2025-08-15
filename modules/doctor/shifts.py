@@ -35,11 +35,11 @@ class ShiftsHandler:
 
         try:
             arrival_date_str = self.doctor_module.arrival_date_var.get().strip()
-            arrival_time_str = self.doctor_module.arrival_time_var.get().strip()
+            arrival_time_str = self.doctor_module.arrival_time_var.get().strip() or "09:00"
             arrival_ampm = self.doctor_module.arrival_ampm_var.get()
 
             leave_date_str = self.doctor_module.leave_date_var.get().strip()
-            leave_time_str = self.doctor_module.leave_time_var.get().strip()
+            leave_time_str = self.doctor_module.leave_time_var.get().strip() or "09:00"
             leave_ampm = self.doctor_module.leave_ampm_var.get()
 
             if not all([arrival_date_str, arrival_time_str, leave_date_str, leave_time_str]):

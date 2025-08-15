@@ -254,6 +254,12 @@ def setup_patients_db():
             FOREIGN KEY (patient_id) REFERENCES patients (id)
         )
     ''')
+
+    # Add stay_date column to patient_equipment if it doesn't exist
+    cursor.execute("PRAGMA table_info(patient_equipment)")
+    columns = [info[1] for info in cursor.fetchall()]
+    if 'stay_date' not in columns:
+        cursor.execute('ALTER TABLE patient_equipment ADD COLUMN stay_date DATE')
     
     conn.commit()
     conn.close()

@@ -28,7 +28,7 @@ class NurseCRUD:
         for nurse in nurses:
             nurse_id, nurse_name, nurse_level = nurse
             var = tk.BooleanVar()
-            cb = ttk.Checkbutton(self.nurse_module.scrollable_frame, text=f"{nurse_id}: {nurse_name} ({nurse_level})", variable=var,
+            cb = ttk.Checkbutton(self.nurse_module.scrollable_frame, text=f"{nurse_id}: {nurse_name}", variable=var,
                                  command=lambda nurse_id=nurse_id: self.on_nurse_select(nurse_id))
             cb.pack(fill='x', padx=5, pady=2)
             self.nurse_module.nurse_vars[nurse_id] = var
@@ -203,6 +203,7 @@ class NurseCRUD:
             self.nurse_module.rate_var.set("")
             if hasattr(self.nurse_module, 'current_nurse_id'):
                 delattr(self.nurse_module, 'current_nurse_id')
+            self.load_nurses()
         except sqlite3.Error as e:
             show_error_message("Error", f"Failed to delete nurse: {e}")
         finally:

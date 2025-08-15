@@ -227,6 +227,7 @@ class PatientCRUD:
             self.load_patients()
             self.patient_module._refresh_other_modules()
             self.on_patient_select()
+            self.load_patients()
         except sqlite3.Error as e:
             show_error_message("Error", f"Failed to delete patient: {e}")
         finally:

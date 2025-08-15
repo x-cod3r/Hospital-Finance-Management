@@ -197,6 +197,7 @@ class DoctorCRUD:
             self.doctor_module.rate_var.set("")
             if hasattr(self.doctor_module, 'current_doctor_id'):
                 delattr(self.doctor_module, 'current_doctor_id')
+            self.load_doctors()
         except sqlite3.Error as e:
             show_error_message("Error", f"Failed to delete doctor: {e}")
         finally:

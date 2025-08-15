@@ -53,7 +53,7 @@ class ShiftsHandler:
             arrival_ampm = self.nurse_module.arrival_ampm_var.get()
 
             leave_date_str = self.nurse_module.leave_date_var.get().strip()
-            leave_time_str = self.nurse_module.leave_time_var.get().strip()
+            leave_time_str = self.nurse_module.leave_time_var.get().strip() or "09:00"
             leave_ampm = self.nurse_module.leave_ampm_var.get()
 
             if not all([arrival_date_str, leave_date_str, leave_time_str]):
