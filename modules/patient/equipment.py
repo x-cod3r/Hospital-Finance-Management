@@ -180,8 +180,8 @@ class EquipmentHandler:
                 price_str = values[3]
                 price = float(price_str.replace("$", "").replace(",", ""))
 
-                cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, daily_rental_price) VALUES (?, ?, ?, ?)",
-                               (patient_id, equipment_id, start_date, price))
+                cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, daily_rental_price, stay_date) VALUES (?, ?, ?, ?, ?)",
+                               (patient_id, equipment_id, start_date, price, stay_date_str))
 
             conn.commit()
             messagebox.showinfo("Success", "Stay and equipment confirmed successfully.")

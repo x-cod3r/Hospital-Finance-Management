@@ -105,7 +105,8 @@ class ICUManagementApp:
         for widget in self.root.winfo_children():
             widget.destroy()
         
-        self.root.geometry("1200x700")
+        self.root.geometry("700x1300")
+        self.root.minsize(1300, 700)
         
         # Create notebook for tabs
         notebook = ttk.Notebook(self.root)
