@@ -158,6 +158,7 @@ class ItemsHandler:
                     INSERT INTO {table_name} (patient_id, date, item_id, quantity)
                     VALUES (?, ?, ?, ?)
                 """, (patient_id, date, item_id, quantity))
+                self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, f"ADD_{category.upper()}", f"Added {item_name} (x{quantity}) for patient ID {patient_id}")
             conn.commit()
             messagebox.showinfo("Success", f"{category.capitalize()} item added to {len(selected_patients)} patient(s) successfully")
             
@@ -197,8 +198,12 @@ class ItemsHandler:
         cursor = conn.cursor()
         table_name = f"patient_{category}"
         try:
+            item_name = item_values[2]
+            quantity = item_values[3]
+            patient_id = self.patient_module.current_patient_id
             cursor.execute(f"DELETE FROM {table_name} WHERE id = ?", (record_id,))
             conn.commit()
+            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, f"REMOVE_{category.upper()}", f"Removed {item_name} (x{quantity}) for patient ID {patient_id}")
             messagebox.showinfo("Success", "Item removed successfully")
             
             self.load_category_items(category)

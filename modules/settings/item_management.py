@@ -101,11 +101,14 @@ class ItemManagementHandler:
             return
 
         if messagebox.askyesno("Confirm", "Are you sure you want to delete this intervention?"):
+            item = self.interventions_tree.item(selected_item)
+            name, _ = item['values']
             conn = sqlite3.connect("db/interventions.db")
             cursor = conn.cursor()
             cursor.execute("DELETE FROM interventions WHERE id = ?", (selected_item,))
             conn.commit()
             conn.close()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "DELETE_INTERVENTION", f"Deleted intervention: {name}")
             self.load_interventions()
 
     def intervention_dialog(self, title, item_id=None, name="", bonus=""):
@@ -142,8 +145,10 @@ class ItemManagementHandler:
             cursor = conn.cursor()
             if item_id:
                 cursor.execute("UPDATE interventions SET name = ?, bonus_amount = ? WHERE id = ?", (new_name, new_bonus, item_id))
+                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "UPDATE_INTERVENTION", f"Updated intervention: {new_name}")
             else:
                 cursor.execute("INSERT INTO interventions (name, bonus_amount) VALUES (?, ?)", (new_name, new_bonus))
+                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "CREATE_INTERVENTION", f"Created intervention: {new_name}")
             conn.commit()
             conn.close()
             self.load_interventions()
@@ -201,11 +206,14 @@ class ItemManagementHandler:
             return
 
         if messagebox.askyesno("Confirm", "Are you sure you want to delete this item?"):
+            item = tree.item(selected_item)
+            name, _ = item['values']
             conn = sqlite3.connect("db/items.db")
             cursor = conn.cursor()
             cursor.execute("DELETE FROM items WHERE id = ?", (selected_item,))
             conn.commit()
             conn.close()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, f"DELETE_ITEM", f"Deleted item: {name} from {category}")
             self.load_items(category)
             self.settings_module._refresh_other_modules()
 
@@ -249,8 +257,10 @@ class ItemManagementHandler:
             cursor = conn.cursor()
             if item_id:
                 cursor.execute("UPDATE items SET category = ?, name = ?, price = ? WHERE id = ?", (new_category, new_name, new_price, item_id))
+                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, f"UPDATE_ITEM", f"Updated item: {new_name} in {new_category}")
             else:
                 cursor.execute("INSERT INTO items (category, name, price) VALUES (?, ?, ?)", (new_category, new_name, new_price))
+                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, f"CREATE_ITEM", f"Created item: {new_name} in {new_category}")
             conn.commit()
             conn.close()
             self.load_items(new_category)

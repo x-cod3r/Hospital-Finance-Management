@@ -79,12 +79,15 @@ class EquipmentManagementHandler:
             return
 
         if messagebox.askyesno("Confirm", "Are you sure you want to delete this equipment?"):
+            item = self.equipment_tree.item(selected_item)
+            name, _ = item['values']
             conn = sqlite3.connect("db/items.db")
             cursor = conn.cursor()
             cursor.execute("DELETE FROM equipment WHERE id = ?", (selected_item,))
             cursor.execute("DELETE FROM care_level_equipment WHERE equipment_id = ?", (selected_item,))
             conn.commit()
             conn.close()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "DELETE_EQUIPMENT", f"Deleted equipment: {name}")
             self.load_equipment()
             self.load_assigned_equipment()
 
@@ -121,8 +124,10 @@ class EquipmentManagementHandler:
             cursor = conn.cursor()
             if item_id:
                 cursor.execute("UPDATE equipment SET name = ?, daily_rental_price = ? WHERE id = ?", (new_name, new_price, item_id))
+                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "UPDATE_EQUIPMENT", f"Updated equipment: {new_name}")
             else:
                 cursor.execute("INSERT INTO equipment (name, daily_rental_price) VALUES (?, ?)", (new_name, new_price))
+                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "CREATE_EQUIPMENT", f"Created equipment: {new_name}")
             conn.commit()
             conn.close()
             self.load_equipment()
@@ -177,6 +182,9 @@ class EquipmentManagementHandler:
         try:
             cursor.execute("INSERT INTO care_level_equipment (care_level_id, equipment_id) VALUES (?, ?)", (care_level_id, selected_equipment))
             conn.commit()
+            item = self.equipment_tree.item(selected_equipment)
+            name, _ = item['values']
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "ASSIGN_EQUIPMENT", f"Assigned equipment '{name}' to care level '{care_level_name}'")
         except sqlite3.IntegrityError:
             messagebox.showwarning("Info", "Equipment already assigned to this care level.")
         finally:
@@ -202,4 +210,5 @@ class EquipmentManagementHandler:
         cursor.execute("DELETE FROM care_level_equipment WHERE care_level_id = ? AND equipment_id = ?", (care_level_id, equipment_id))
         conn.commit()
         conn.close()
+        self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "UNASSIGN_EQUIPMENT", f"Unassigned equipment '{equipment_name}' from care level '{care_level_name}'")
         self.load_assigned_equipment()

@@ -23,6 +23,7 @@ class SettingsModule:
         self.equipment_management_handler = EquipmentManagementHandler(self)
 
         self.setup_ui()
+        self.auth_module.set_log_refresh_callback(self.audit_log_handler.load_logs)
 
     def setup_ui(self):
         main_frame = ttk.Frame(self.parent, padding="10")

@@ -7,6 +7,7 @@ class AuthModule:
     def __init__(self):
         self.db_path = "db/users.db"
         self.current_user = None
+        self.log_refresh_callback = None
         self.setup_database()
     
     def setup_database(self):
@@ -126,6 +127,10 @@ class AuthModule:
         conn.close()
         return users
     
+    def set_log_refresh_callback(self, callback):
+        """Set the callback function to refresh the audit log"""
+        self.log_refresh_callback = callback
+
     def log_action(self, user, action, details=""):
         """Log user actions"""
         conn = sqlite3.connect(self.db_path)
@@ -138,6 +143,9 @@ class AuthModule:
         
         conn.commit()
         conn.close()
+
+        if self.log_refresh_callback:
+            self.log_refresh_callback()
     
     def get_logs(self):
         """Get all logs"""

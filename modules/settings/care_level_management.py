@@ -60,11 +60,14 @@ class CareLevelManagementHandler:
             return
 
         if messagebox.askyesno("Confirm", "Are you sure you want to delete this care level?"):
+            item = self.care_levels_tree.item(selected_item)
+            name, _ = item['values']
             conn = sqlite3.connect("db/items.db")
             cursor = conn.cursor()
             cursor.execute("DELETE FROM care_levels WHERE id = ?", (selected_item,))
             conn.commit()
             conn.close()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "DELETE_CARE_LEVEL", f"Deleted care level: {name}")
             self.load_care_levels()
             self.settings_module._refresh_other_modules()
 
@@ -102,8 +105,10 @@ class CareLevelManagementHandler:
             cursor = conn.cursor()
             if item_id:
                 cursor.execute("UPDATE care_levels SET name = ?, daily_rate = ? WHERE id = ?", (new_name, new_rate, item_id))
+                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "UPDATE_CARE_LEVEL", f"Updated care level: {new_name}")
             else:
                 cursor.execute("INSERT INTO care_levels (name, daily_rate) VALUES (?, ?)", (new_name, new_rate))
+                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "CREATE_CARE_LEVEL", f"Created care level: {new_name}")
             conn.commit()
             conn.close()
             self.load_care_levels()

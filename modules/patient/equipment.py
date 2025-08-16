@@ -176,6 +176,7 @@ class EquipmentHandler:
             # Add the stay
             cursor.execute("INSERT INTO patient_stays (patient_id, stay_date, care_level_id) VALUES (?, ?, ?)",
                            (patient_id, stay_date_str, self.care_level_id))
+            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, "ADD_STAY", f"Added stay for patient ID {patient_id} on {stay_date_str}")
 
             # Add the equipment
             for item in self.equipment_tree.get_children():
