@@ -68,20 +68,21 @@ class AuthModule:
         )
         
         result = cursor.fetchone()
-        conn.close()
         
         if result:
             self.current_user = username
-            self.log_action(username, "LOGIN", "User logged in successfully")
+            self.log_action(username, "LOGIN", "User logged in successfully", conn)
+            conn.close()
             return True
+        
+        conn.close()
         return False
     
     def create_user(self, username, password, creator):
         """Create a new user"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
             password_hash = self.hash_password(password)
             cursor.execute(
                 "INSERT INTO users (username, password_hash) VALUES (?, ?)",
@@ -89,12 +90,13 @@ class AuthModule:
             )
             
             # Log the action
-            self.log_action(creator, "CREATE_USER", f"Created user: {username}")
+            self.log_action(creator, "CREATE_USER", f"Created user: {username}", conn)
             
             conn.commit()
             conn.close()
             return True
         except sqlite3.IntegrityError:
+            conn.close()
             return False  # Username already exists
     
     def delete_user(self, username, requester):
@@ -108,7 +110,7 @@ class AuthModule:
         
         if result and result[0] == 1 and username == requester:
             cursor.execute("DELETE FROM users WHERE username = ?", (username,))
-            self.log_action(requester, "DELETE_USER", f"Deleted user: {username}")
+            self.log_action(requester, "DELETE_USER", f"Deleted user: {username}", conn)
             conn.commit()
             conn.close()
             return True
@@ -131,9 +133,13 @@ class AuthModule:
         """Set the callback function to refresh the audit log"""
         self.log_refresh_callback = callback
 
-    def log_action(self, user, action, details=""):
+    def log_action(self, user, action, details="", conn=None):
         """Log user actions"""
-        conn = sqlite3.connect(self.db_path)
+        close_conn = False
+        if conn is None:
+            conn = sqlite3.connect(self.db_path)
+            close_conn = True
+        
         cursor = conn.cursor()
         
         cursor.execute(
@@ -141,18 +147,23 @@ class AuthModule:
             (user, action, details)
         )
         
-        conn.commit()
-        conn.close()
+        if close_conn:
+            conn.commit()
+            conn.close()
 
         if self.log_refresh_callback:
             self.log_refresh_callback()
     
-    def get_logs(self):
-        """Get all logs"""
+    def get_logs(self, username=None):
+        """Get logs for a specific user, or all logs if no user is specified."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        cursor.execute("SELECT user, action, timestamp, details FROM logs ORDER BY timestamp DESC")
+        if username:
+            cursor.execute("SELECT user, action, timestamp, details FROM logs WHERE user = ? ORDER BY timestamp DESC", (username,))
+        else:
+            cursor.execute("SELECT user, action, timestamp, details FROM logs ORDER BY timestamp DESC")
+        
         logs = cursor.fetchall()
         
         conn.close()

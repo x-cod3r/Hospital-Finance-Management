@@ -6,7 +6,7 @@ class AuditLogHandler:
     def __init__(self, settings_module):
         self.settings_module = settings_module
         self.parent = settings_module.parent
-        self.auth_module = AuthModule()
+        self.auth_module = self.settings_module.auth_module
 
     def setup_log_tab(self, parent):
         """Setup audit log tab"""
@@ -25,9 +25,14 @@ class AuditLogHandler:
         self.load_logs()
 
     def load_logs(self):
-        """Load audit logs"""
+        """Load audit logs for the current user"""
         self.log_text.delete(1.0, tk.END)
-        logs = self.auth_module.get_logs()
+        
+        current_user = self.auth_module.current_user
+        if not current_user:
+            return
+            
+        logs = self.auth_module.get_logs(current_user)
         
         for log in logs:
             user, action, timestamp, details = log

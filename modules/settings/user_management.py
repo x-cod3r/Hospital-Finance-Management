@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from modules.auth import AuthModule
 from modules.utils import show_error_message
 
