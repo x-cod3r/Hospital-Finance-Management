@@ -4,6 +4,9 @@ import sqlite3
 import traceback
 import os
 import configparser
+import hashlib
+import base64
+from datetime import datetime
 from modules.auth import AuthModule
 from modules.doctor_module import DoctorModule
 from modules.nurse_module import NurseModule
@@ -33,7 +36,10 @@ class ICUManagementApp:
         self.create_main_menu()
         
         # Show login screen
-        self.show_login()
+        if not self.check_license():
+            self.prompt_for_license()
+        else:
+            self.show_login()
     
     def create_main_menu(self):
         """Create the main menu bar"""
@@ -165,6 +171,58 @@ class ICUManagementApp:
             settings_module.nurse_module = nurse_module
         if 'settings_module' in locals() and 'patient_module' in locals():
             settings_module.patient_module = patient_module
+            
+    def check_license(self):
+        """Check if a valid license key exists and is not expired."""
+        try:
+            with open("license.key", "r") as f:
+                encoded_key = f.read()
+            
+            decoded_key = base64.b64decode(encoded_key).decode()
+            expiration_date_str, hashed_data = decoded_key.split("::")
+            
+            secret_key = "my-secret-key"
+            data = f"{expiration_date_str}:{secret_key}"
+            expected_hash = hashlib.sha256(data.encode()).hexdigest()
+            
+            if hashed_data != expected_hash:
+                return False
+            
+            expiration_date = datetime.strptime(expiration_date_str, "%Y-%m-%d")
+            if datetime.now() > expiration_date:
+                return False
+                
+            return True
+        except Exception:
+            return False
+
+    def prompt_for_license(self):
+        """Prompt the user to enter a license key."""
+        license_window = tk.Toplevel(self.root)
+        license_window.title("License Key Required")
+        license_window.geometry("400x150")
+        license_window.transient(self.root)
+        license_window.grab_set()
+
+        ttk.Label(license_window, text="Please enter a valid license key:").pack(pady=10)
+        key_entry = ttk.Entry(license_window, width=50)
+        key_entry.pack(pady=5)
+
+        def submit_key():
+            key = key_entry.get()
+            try:
+                with open("license.key", "w") as f:
+                    f.write(key)
+                
+                if self.check_license():
+                    license_window.destroy()
+                    self.show_login()
+                else:
+                    messagebox.showerror("Error", "Invalid or expired license key.")
+            except Exception:
+                messagebox.showerror("Error", "Invalid license key format.")
+
+        ttk.Button(license_window, text="Submit", command=submit_key).pack(pady=10)
     
     def show_about(self):
         """Show about dialog"""
