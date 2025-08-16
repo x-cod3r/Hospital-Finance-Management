@@ -145,6 +145,9 @@ class ReportingHandler:
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
+        cursor.execute("ATTACH DATABASE 'db/doctors.db' AS doctors_db")
+        cursor.execute("ATTACH DATABASE 'db/nurses.db' AS nurses_db")
+        cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
 
         cursor.execute("SELECT id, name FROM patients")
         patients = cursor.fetchall()
@@ -179,8 +182,11 @@ class ReportingHandler:
                 WHERE patient_id = ?
             """, (patient_id,))
             for start_date, end_date, daily_price in cursor.fetchall():
+                if not end_date:
+                    continue
+
                 start = datetime.strptime(start_date, "%Y-%m-%d")
-                end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.strptime(to_date, "%Y-%m-%d")
+                end = datetime.strptime(end_date, "%Y-%m-%d")
                 
                 period_start = datetime.strptime(from_date, "%Y-%m-%d")
                 period_end = datetime.strptime(to_date, "%Y-%m-%d")
@@ -188,11 +194,47 @@ class ReportingHandler:
                 overlap_start = max(start, period_start)
                 overlap_end = min(end, period_end)
 
-                if overlap_start <= overlap_end:
-                    days = (overlap_end - overlap_start).days + 1
+                if overlap_start < overlap_end:
+                    days = (overlap_end - overlap_start).days
                     equipment_revenue += days * daily_price
 
-            patient_total_revenue = stay_revenue + item_revenue + equipment_revenue
+            # Doctor costs for this patient
+            cursor.execute("""
+                SELECT SUM((julianday(ds.leave_datetime) - julianday(ds.arrival_datetime)) * 24 * d.hourly_rate)
+                FROM doctors_db.doctor_shifts ds
+                JOIN doctors_db.doctors d ON ds.doctor_id = d.id
+                WHERE ds.patient_id = ? AND date(ds.arrival_datetime) BETWEEN ? AND ?
+            """, (patient_id, from_date, to_date))
+            doctor_shift_cost = cursor.fetchone()[0] or 0.0
+
+            cursor.execute("""
+                SELECT SUM(i.bonus_amount)
+                FROM doctors_db.doctor_interventions di
+                JOIN interventions_db.interventions i ON di.intervention_id = i.id
+                WHERE di.patient_id = ? AND di.date BETWEEN ? AND ?
+            """, (patient_id, from_date, to_date))
+            doctor_bonus_cost = cursor.fetchone()[0] or 0.0
+            doctor_total_cost = doctor_shift_cost + doctor_bonus_cost
+
+            # Nurse costs for this patient
+            cursor.execute("""
+                SELECT SUM((julianday(ns.leave_datetime) - julianday(ns.arrival_datetime)) * 24 * n.hourly_rate)
+                FROM nurses_db.nurse_shifts ns
+                JOIN nurses_db.nurses n ON ns.nurse_id = n.id
+                WHERE ns.patient_id = ? AND date(ns.arrival_datetime) BETWEEN ? AND ?
+            """, (patient_id, from_date, to_date))
+            nurse_shift_cost = cursor.fetchone()[0] or 0.0
+
+            cursor.execute("""
+                SELECT SUM(i.bonus_amount)
+                FROM nurses_db.nurse_interventions ni
+                JOIN interventions_db.interventions i ON ni.intervention_id = i.id
+                WHERE ni.patient_id = ? AND ni.date BETWEEN ? AND ?
+            """, (patient_id, from_date, to_date))
+            nurse_bonus_cost = cursor.fetchone()[0] or 0.0
+            nurse_total_cost = nurse_shift_cost + nurse_bonus_cost
+
+            patient_total_revenue = stay_revenue + item_revenue + equipment_revenue + doctor_total_cost + nurse_total_cost
             total_revenue += patient_total_revenue
             
             # For the company, all item charges are pass-through costs
@@ -204,6 +246,8 @@ class ReportingHandler:
                 print(f"    - Stay Revenue: ${stay_revenue:.2f}")
                 print(f"    - Item Revenue (Pass-through cost): ${item_revenue:.2f}")
                 print(f"    - Equipment Revenue: ${equipment_revenue:.2f}")
+                print(f"    - Doctor Costs: ${doctor_total_cost:.2f}")
+                print(f"    - Nurse Costs: ${nurse_total_cost:.2f}")
                 print(f"    - Total Revenue from {name}: ${patient_total_revenue:.2f}")
 
             if patient_total_revenue > 0:

@@ -165,7 +165,10 @@ class EquipmentHandler:
     def confirm_stay_and_equipment(self):
         """Save the stay and the equipment list to the database."""
         patient_id = self.patient_module.current_patient_id
-        stay_date_str = self.stay_date.strftime('%Y-%m-%d')
+        stay_date = self.stay_date
+        end_date = stay_date + timedelta(days=1)
+        stay_date_str = stay_date.strftime('%Y-%m-%d')
+        end_date_str = end_date.strftime('%Y-%m-%d')
 
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
@@ -175,14 +178,25 @@ class EquipmentHandler:
                            (patient_id, stay_date_str, self.care_level_id))
 
             # Add the equipment
-            for equipment_id in self.equipment_tree.get_children():
-                values = self.equipment_tree.item(equipment_id, 'values')
-                start_date = values[1]
+            for item in self.equipment_tree.get_children():
+                values = self.equipment_tree.item(item, 'values')
+                equipment_name = values[0]
                 price_str = values[3]
                 price = float(price_str.replace("$", "").replace(",", ""))
 
-                cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, daily_rental_price, stay_date) VALUES (?, ?, ?, ?, ?)",
-                               (patient_id, equipment_id, start_date, price, stay_date_str))
+                # Get equipment_id from the equipment_list
+                equipment_id = None
+                for eid, name, _ in self.equipment_list:
+                    if name == equipment_name:
+                        equipment_id = eid
+                        break
+                
+                if equipment_id:
+                    cursor.execute("""
+                        INSERT INTO patient_equipment 
+                        (patient_id, equipment_id, start_date, end_date, daily_rental_price, stay_date) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (patient_id, equipment_id, stay_date_str, end_date_str, price, stay_date_str))
 
             conn.commit()
             messagebox.showinfo("Success", "Stay and equipment confirmed successfully.")
