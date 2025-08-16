@@ -8,14 +8,15 @@ from .settings.care_level_management import CareLevelManagementHandler
 from .settings.equipment_management import EquipmentManagementHandler
 
 class SettingsModule:
-    def __init__(self, parent):
+    def __init__(self, parent, auth_module):
         self.parent = parent
+        self.auth_module = auth_module
         self.doctor_module = None
         self.nurse_module = None
         self.patient_module = None
 
         self.general_handler = GeneralSettingsHandler(self)
-        self.user_management_handler = UserManagementHandler(self)
+        self.user_management_handler = UserManagementHandler(self, auth_module)
         self.audit_log_handler = AuditLogHandler(self)
         self.item_management_handler = ItemManagementHandler(self)
         self.care_level_management_handler = CareLevelManagementHandler(self)

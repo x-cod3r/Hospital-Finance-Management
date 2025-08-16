@@ -5,9 +5,10 @@ from ..utils import show_error_message
 from ..utils import format_currency
 
 class NurseCRUD:
-    def __init__(self, nurse_module):
+    def __init__(self, nurse_module, auth_module):
         self.nurse_module = nurse_module
         self.parent = nurse_module.parent
+        self.auth_module = auth_module
 
     def get_selected_nurses(self):
         """Get a list of selected nurse IDs"""
@@ -91,6 +92,7 @@ class NurseCRUD:
             try:
                 cursor.execute("INSERT INTO nurses (name, level, hourly_rate) VALUES (?, ?, ?)", (name, level, rate))
                 conn.commit()
+                self.auth_module.log_action(self.auth_module.current_user, "CREATE_NURSE", f"Created nurse: {name}")
                 messagebox.showinfo("Success", "Nurse added successfully")
                 add_window.destroy()
                 self.load_nurses()
@@ -158,6 +160,7 @@ class NurseCRUD:
                 cursor.execute("UPDATE nurses SET name = ?, level = ?, hourly_rate = ? WHERE id = ?", 
                               (name, level, rate, self.nurse_module.current_nurse_id))
                 conn.commit()
+                self.auth_module.log_action(self.auth_module.current_user, "UPDATE_NURSE", f"Updated nurse: {name}")
                 messagebox.showinfo("Success", "Nurse updated successfully")
                 edit_window.destroy()
                 self.load_nurses()
@@ -186,10 +189,13 @@ class NurseCRUD:
         cursor = conn.cursor()
         try:
             for nurse_id in selected_nurses:
+                cursor.execute("SELECT name FROM nurses WHERE id = ?", (nurse_id,))
+                nurse_name = cursor.fetchone()[0]
                 cursor.execute("DELETE FROM nurse_shifts WHERE nurse_id = ?", (nurse_id,))
                 cursor.execute("DELETE FROM nurse_interventions WHERE nurse_id = ?", (nurse_id,))
                 cursor.execute("DELETE FROM nurse_payments WHERE nurse_id = ?", (nurse_id,))
                 cursor.execute("DELETE FROM nurses WHERE id = ?", (nurse_id,))
+                self.auth_module.log_action(self.auth_module.current_user, "DELETE_NURSE", f"Deleted nurse: {nurse_name}")
             conn.commit()
             
             messagebox.showinfo("Success", f"{len(selected_nurses)} nurse(s) deleted successfully")

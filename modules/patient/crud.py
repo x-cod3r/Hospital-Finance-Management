@@ -5,9 +5,10 @@ from tkcalendar import DateEntry
 from ..utils import show_error_message
 
 class PatientCRUD:
-    def __init__(self, patient_module):
+    def __init__(self, patient_module, auth_module):
         self.patient_module = patient_module
         self.parent = patient_module.parent
+        self.auth_module = auth_module
 
     def get_selected_patients(self):
         """Get a list of selected patient IDs"""
@@ -107,6 +108,7 @@ class PatientCRUD:
             try:
                 cursor.execute("INSERT INTO patients (name, admission_date) VALUES (?, ?)", (name, admission_date))
                 conn.commit()
+                self.auth_module.log_action(self.auth_module.current_user, "CREATE_PATIENT", f"Created patient: {name}")
                 messagebox.showinfo("Success", "Patient added successfully")
                 add_window.destroy()
                 self.load_patients()
@@ -185,6 +187,7 @@ class PatientCRUD:
                 cursor.execute("UPDATE patients SET name = ?, admission_date = ?, discharge_date = ? WHERE id = ?", 
                                (name, admission_date, discharge_date, self.patient_module.current_patient_id))
                 conn.commit()
+                self.auth_module.log_action(self.auth_module.current_user, "UPDATE_PATIENT", f"Updated patient: {name}")
                 messagebox.showinfo("Success", "Patient updated successfully")
                 edit_window.destroy()
                 self.load_patients()
@@ -215,12 +218,15 @@ class PatientCRUD:
         cursor = conn.cursor()
         try:
             for patient_id in selected_patients:
+                cursor.execute("SELECT name FROM patients WHERE id = ?", (patient_id,))
+                patient_name = cursor.fetchone()[0]
                 cursor.execute("DELETE FROM patient_stays WHERE patient_id = ?", (patient_id,))
                 cursor.execute("DELETE FROM patient_labs WHERE patient_id = ?", (patient_id,))
                 cursor.execute("DELETE FROM patient_drugs WHERE patient_id = ?", (patient_id,))
                 cursor.execute("DELETE FROM patient_radiology WHERE patient_id = ?", (patient_id,))
                 cursor.execute("DELETE FROM patient_consultations WHERE patient_id = ?", (patient_id,))
                 cursor.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
+                self.auth_module.log_action(self.auth_module.current_user, "DELETE_PATIENT", f"Deleted patient: {patient_name}")
             conn.commit()
             
             messagebox.showinfo("Success", f"{len(selected_patients)} patient(s) deleted successfully")

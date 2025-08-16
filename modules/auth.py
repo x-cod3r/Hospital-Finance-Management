@@ -6,6 +6,7 @@ from datetime import datetime
 class AuthModule:
     def __init__(self):
         self.db_path = "db/users.db"
+        self.current_user = None
         self.setup_database()
     
     def setup_database(self):
@@ -68,7 +69,11 @@ class AuthModule:
         result = cursor.fetchone()
         conn.close()
         
-        return result is not None
+        if result:
+            self.current_user = username
+            self.log_action(username, "LOGIN", "User logged in successfully")
+            return True
+        return False
     
     def create_user(self, username, password, creator):
         """Create a new user"""

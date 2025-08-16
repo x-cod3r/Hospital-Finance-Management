@@ -7,12 +7,13 @@ from .patient.costing import CostingHandler
 from .patient.equipment import EquipmentHandler
 
 class PatientModule:
-    def __init__(self, parent):
+    def __init__(self, parent, auth_module):
         self.parent = parent
+        self.auth_module = auth_module
         self.doctor_module = None
         self.nurse_module = None
 
-        self.crud_handler = PatientCRUD(self)
+        self.crud_handler = PatientCRUD(self, auth_module)
         self.stays_handler = StaysHandler(self)
         self.items_handler = ItemsHandler(self)
         self.costing_handler = CostingHandler(self)

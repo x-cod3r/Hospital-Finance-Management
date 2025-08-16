@@ -131,11 +131,11 @@ class ICUManagementApp:
         notebook.add(settings_tab, text="Settings")
         
         # Initialize modules in their respective tabs
-        doctor_module = DoctorModule(doctor_tab)
-        nurse_module = NurseModule(nurse_tab)
-        patient_module = PatientModule(patient_tab)
+        doctor_module = DoctorModule(doctor_tab, self.auth_module)
+        nurse_module = NurseModule(nurse_tab, self.auth_module)
+        patient_module = PatientModule(patient_tab, self.auth_module)
         company_module = CompanyModule(company_tab)
-        settings_module = SettingsModule(settings_tab)
+        settings_module = SettingsModule(settings_tab, self.auth_module)
 
         # Set up module connections
         patient_module.doctor_module = doctor_module

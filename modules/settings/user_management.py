@@ -4,10 +4,10 @@ from modules.auth import AuthModule
 from modules.utils import show_error_message
 
 class UserManagementHandler:
-    def __init__(self, settings_module):
+    def __init__(self, settings_module, auth_module):
         self.settings_module = settings_module
         self.parent = settings_module.parent
-        self.auth_module = AuthModule()
+        self.auth_module = auth_module
 
     def setup_user_tab(self, parent):
         """Setup user management tab"""
@@ -61,7 +61,7 @@ class UserManagementHandler:
         if not result:
             return
         
-        if self.auth_module.delete_user(username, "admin"):
+        if self.auth_module.delete_user(username, self.auth_module.current_user):
             messagebox.showinfo("Success", f"User '{username}' deleted successfully")
             self.load_users()
         else:
@@ -76,7 +76,7 @@ class UserManagementHandler:
             show_error_message("Error", "Please enter both username and password")
             return
         
-        if self.auth_module.create_user(username, password, "admin"):
+        if self.auth_module.create_user(username, password, self.auth_module.current_user):
             messagebox.showinfo("Success", f"User '{username}' created successfully")
             self.load_users()
             

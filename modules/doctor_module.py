@@ -10,9 +10,10 @@ from .doctor.interventions import InterventionsHandler
 from .doctor.salary import SalaryHandler
 
 class DoctorModule:
-    def __init__(self, parent):
+    def __init__(self, parent, auth_module):
         self.parent = parent
-        self.crud_handler = DoctorCRUD(self)
+        self.auth_module = auth_module
+        self.crud_handler = DoctorCRUD(self, auth_module)
         self.shifts_handler = ShiftsHandler(self)
         self.interventions_handler = InterventionsHandler(self)
         self.salary_handler = SalaryHandler(self)
