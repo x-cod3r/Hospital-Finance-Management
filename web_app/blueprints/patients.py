@@ -9,6 +9,7 @@ from modules.patient.crud import PatientCRUD
 from modules.patient.stays import StaysHandler
 from modules.patient.items import ItemsHandler
 from modules.patient.equipment import EquipmentHandler
+from modules.patient.costing import CostingHandler
 from modules.auth import AuthModule
 
 patients_bp = Blueprint('patients', __name__, template_folder='../templates/patients')

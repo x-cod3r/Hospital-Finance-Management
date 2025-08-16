@@ -137,7 +137,13 @@ def view_interventions(doctor_id):
     interventions = interventions_handler.load_interventions()
     # This is not ideal, but we need to get the patient list for the form
     from modules.patient.crud import PatientCRUD
-    patients = PatientCRUD(None, auth_module).load_patients()
+    
+    class WebPatientModule:
+        def __init__(self):
+            self.auth_module = auth_module
+            self.parent = None
+
+    patients = PatientCRUD(WebPatientModule(), auth_module).load_patients()
     
     return render_template('interventions.html', interventions=interventions, patients=patients, doctor_id=doctor_id)
 

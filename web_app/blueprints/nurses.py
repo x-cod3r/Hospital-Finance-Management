@@ -76,7 +76,7 @@ def view_shifts(nurse_id):
         return redirect(url_for('login'))
     
     shifts_handler = ShiftsHandler(WebNurseModule())
-    shifts = shifts_handler.load_shifts(nurse_id)
+    shifts = shifts_handler.get_shifts_for_nurse(nurse_id)
     
     return render_template('shifts.html', shifts=shifts, nurse_id=nurse_id)
 

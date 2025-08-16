@@ -46,6 +46,24 @@ class ShiftsHandler:
         
         return False # No overlap or overlap is within tolerance
 
+    def get_shifts_for_nurse(self, nurse_id):
+        """Fetch all shifts for a specific nurse."""
+        conn = sqlite3.connect("db/nurses.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT id, patient_id, arrival_datetime, leave_datetime, nurse_level_id 
+                FROM nurse_shifts 
+                WHERE nurse_id = ?
+            """, (nurse_id,))
+            shifts = cursor.fetchall()
+            return shifts
+        except sqlite3.Error as e:
+            print(f"Error fetching shifts: {e}")
+            return []
+        finally:
+            conn.close()
+
     def add_shift(self, nurse_id, patient_id, arrival_datetime, leave_datetime, nurse_level_id):
         """Add a new shift for a nurse"""
         if self.check_shift_overlap(nurse_id, arrival_datetime, leave_datetime):
