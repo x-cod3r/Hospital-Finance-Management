@@ -138,7 +138,13 @@ def view_interventions(nurse_id):
     interventions = interventions_handler.load_interventions()
     # This is not ideal, but we need to get the patient list for the form
     from modules.patient.crud import PatientCRUD
-    patients = PatientCRUD(None, auth_module).load_patients()
+    
+    class WebPatientModule:
+        def __init__(self):
+            self.auth_module = auth_module
+            self.parent = None
+
+    patients = PatientCRUD(WebPatientModule(), auth_module).load_patients()
     
     return render_template('interventions.html', interventions=interventions, patients=patients, nurse_id=nurse_id)
 
@@ -166,6 +172,6 @@ def calculate_salary(nurse_id):
         salary_handler = SalaryHandler(WebNurseModule())
         salary_details = salary_handler.calculate_salary_details("nurse", nurse_id, start_date, end_date)
         
-        return render_template('salary.html', salary_details=salary_details, nurse_id=nurse_id)
+        return render_template('nurses/salary.html', salary_details=salary_details, nurse_id=nurse_id)
         
-    return render_template('salary.html', nurse_id=nurse_id)
+    return render_template('nurses/salary.html', nurse_id=nurse_id)

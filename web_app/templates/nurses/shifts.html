@@ -38,11 +38,11 @@
         <tbody>
             {% for shift in shifts %}
             <tr>
-                <td>{{ shift.arrival_datetime }}</td>
-                <td>{{ shift.leave_datetime }}</td>
-                <td>{{ shift.patient_id }}</td>
+                <td>{{ shift[2] }}</td>
+                <td>{{ shift[3] }}</td>
+                <td>{{ shift[1] }}</td>
                 <td>
-                    <a href="{{ url_for('nurses.delete_shift', shift_id=shift.id, nurse_id=nurse_id) }}">Delete</a>
+                    <a href="{{ url_for('nurses.delete_shift', shift_id=shift[0], nurse_id=nurse_id) }}">Delete</a>
                 </td>
             </tr>
             {% endfor %}
