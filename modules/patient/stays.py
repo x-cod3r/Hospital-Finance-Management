@@ -45,7 +45,7 @@ class StaysHandler:
         conn.close()
         return care_levels
 
-    def add_stay(self, patient_id, stay_date, care_level_id):
+    def add_stay(self, patient_id, stay_date, care_level_id, current_user):
         """Add a new stay for a patient"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
@@ -53,7 +53,7 @@ class StaysHandler:
             cursor.execute("INSERT INTO patient_stays (patient_id, stay_date, care_level_id) VALUES (?, ?, ?)",
                            (patient_id, stay_date, care_level_id))
             conn.commit()
-            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, "ADD_STAY", f"Added stay for patient ID {patient_id} on {stay_date}")
+            self.patient_module.auth_module.log_action(current_user, "ADD_STAY", f"Added stay for patient ID {patient_id} on {stay_date}")
             return True
         except sqlite3.Error as e:
             print(f"Error adding stay: {e}")
@@ -61,17 +61,21 @@ class StaysHandler:
         finally:
             conn.close()
 
-    def remove_stay(self, stay_id):
+    def remove_stay(self, stay_id, current_user):
         """Remove a stay record"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         try:
             cursor.execute("SELECT patient_id, stay_date FROM patient_stays WHERE id = ?", (stay_id,))
-            patient_id, stay_date = cursor.fetchone()
-            cursor.execute("DELETE FROM patient_stays WHERE id = ?", (stay_id,))
-            conn.commit()
-            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, "REMOVE_STAY", f"Removed stay for patient ID {patient_id} on {stay_date}")
-            return True
+            result = cursor.fetchone()
+            if result:
+                patient_id, stay_date = result
+                cursor.execute("DELETE FROM patient_stays WHERE id = ?", (stay_id,))
+                conn.commit()
+                self.patient_module.auth_module.log_action(current_user, "REMOVE_STAY", f"Removed stay for patient ID {patient_id} on {stay_date}")
+                return True
+            else:
+                return False
         except sqlite3.Error as e:
             print(f"Error removing stay: {e}")
             return False

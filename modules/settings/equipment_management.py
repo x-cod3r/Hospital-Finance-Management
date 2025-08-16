@@ -121,26 +121,25 @@ class EquipmentManagementHandler:
         conn.close()
         self.care_level_combo['values'] = [name for id, name in self.care_levels]
 
-    def load_assigned_equipment(self, event=None):
-        for i in self.assigned_equipment_tree.get_children():
-            self.assigned_equipment_tree.delete(i)
-
-        care_level_name = self.care_level_var.get()
-        if not care_level_name:
-            return
-
-        care_level_id = [id for id, name in self.care_levels if name == care_level_name][0]
-
+    def load_assigned_equipment(self, care_level_id):
+        """Load equipment assigned to a specific care level."""
         conn = sqlite3.connect("db/items.db")
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT e.name FROM care_level_equipment cle
+            SELECT e.name, e.id FROM care_level_equipment cle
             JOIN equipment e ON cle.equipment_id = e.id
             WHERE cle.care_level_id = ?
         """, (care_level_id,))
-        for row in cursor.fetchall():
-            self.assigned_equipment_tree.insert("", "end", values=(row[0],))
+        assigned_equipment = cursor.fetchall()
         conn.close()
+        
+        if hasattr(self, 'assigned_equipment_tree'):
+            for i in self.assigned_equipment_tree.get_children():
+                self.assigned_equipment_tree.delete(i)
+            for row in assigned_equipment:
+                self.assigned_equipment_tree.insert("", "end", values=(row[0],))
+        
+        return assigned_equipment
 
     def assign_equipment(self):
         selected_equipment = self.equipment_tree.focus()

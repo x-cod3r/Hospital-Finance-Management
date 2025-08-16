@@ -9,6 +9,7 @@
 <body>
     <div class="container">
         <h1>Add Patient</h1>
+        <a href="{{ url_for('patients.list_patients') }}">Back to Patients</a>
         <form method="post">
             <label for="name">Name:</label>
             <input type="text" id="name" name="name" required>

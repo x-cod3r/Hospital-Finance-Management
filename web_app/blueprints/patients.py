@@ -12,6 +12,7 @@ from modules.patient.equipment import EquipmentHandler
 from modules.patient.costing import CostingHandler
 from modules.auth import AuthModule
 from modules.settings.item_management import ItemManagementHandler
+from modules.settings.equipment_management import EquipmentManagementHandler
 
 patients_bp = Blueprint('patients', __name__, template_folder='../templates/patients')
 
@@ -86,31 +87,78 @@ def view_stays(patient_id):
     if request.method == 'POST':
         stay_date = request.form['stay_date']
         care_level_id = request.form['care_level_id']
-        if stays_handler.add_stay(patient_id, stay_date, care_level_id):
-            flash("Stay added successfully")
-
-            # Add default equipment for the care level
-            equipment_handler = EquipmentHandler(WebPatientModule())
-            equipment_management_handler = EquipmentManagementHandler(WebSettingsModule())
-            default_equipment = equipment_management_handler.load_assigned_equipment(care_level_id)
-            
-            from datetime import datetime, timedelta
-            start_date = datetime.strptime(stay_date, '%Y-%m-%d')
-            end_date = start_date + timedelta(days=1)
-
-            for equip in default_equipment:
-                equipment_id = equip[1]
-                all_equipment = equipment_handler.load_equipment()
-                daily_price = next((eq[2] for eq in all_equipment if eq[0] == int(equipment_id)), 0)
-                equipment_handler.add_equipment(patient_id, equipment_id, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), daily_price)
-        else:
-            flash("Error adding stay")
-        return redirect(url_for('patients.view_stays', patient_id=patient_id))
+        
+        # Store pending stay in session
+        session['pending_stay'] = {
+            'patient_id': patient_id,
+            'stay_date': stay_date,
+            'care_level_id': care_level_id
+        }
+        return redirect(url_for('patients.confirm_stay'))
         
     stays = stays_handler.load_stays(patient_id)
     care_levels = stays_handler.load_care_levels()
     
     return render_template('stays.html', stays=stays, care_levels=care_levels, patient_id=patient_id, patient_name=patient_name)
+
+class WebSettingsModule:
+    def __init__(self):
+        self.parent = None
+
+@patients_bp.route('/patients/confirm_stay', methods=['GET', 'POST'])
+def confirm_stay():
+    if 'username' not in session or 'pending_stay' not in session:
+        return redirect(url_for('login'))
+
+    pending_stay = session['pending_stay']
+    patient_id = pending_stay['patient_id']
+    stay_date = pending_stay['stay_date']
+    care_level_id = pending_stay['care_level_id']
+
+    patient_crud = PatientCRUD(WebPatientModule(), auth_module)
+    patient = patient_crud.get_patient(patient_id)
+    patient_name = patient[1] if patient else "Unknown"
+
+    print(f"--- Confirming stay for patient: {patient_name} ({patient_id}) ---")
+    print(f"Pending stay details: {pending_stay}")
+
+    equipment_management_handler = EquipmentManagementHandler(WebSettingsModule())
+    default_equipment = equipment_management_handler.load_assigned_equipment(int(care_level_id))
+    
+    print(f"Default equipment for care level {care_level_id}: {default_equipment}")
+
+    if request.method == 'POST':
+        stays_handler = StaysHandler(WebPatientModule())
+        if stays_handler.add_stay(patient_id, stay_date, care_level_id, session['username']):
+            flash("Stay added successfully")
+
+            equipment_handler = EquipmentHandler(WebPatientModule())
+            all_equipment = equipment_handler.load_equipment()
+            
+            from datetime import datetime, timedelta
+            start_date = datetime.strptime(stay_date, '%Y-%m-%d')
+            end_date = start_date + timedelta(days=1)
+
+            print("--- Adding default equipment ---")
+            for equip in default_equipment:
+                equipment_id = equip[1]
+                daily_price = next((eq[2] for eq in all_equipment if eq[0] == int(equipment_id)), 0)
+                print(f"Adding equipment ID {equipment_id} with price {daily_price} for patient {patient_id}")
+                equipment_handler.add_equipment(patient_id, equipment_id, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), daily_price, session['username'])
+            
+            print("--- Finished adding default equipment ---")
+            session.pop('pending_stay', None)
+            return redirect(url_for('patients.view_equipment', patient_id=patient_id))
+        else:
+            flash("Error adding stay")
+            return redirect(url_for('patients.view_stays', patient_id=patient_id))
+
+    return render_template('confirm_stay.html', 
+                           patient_name=patient_name, 
+                           stay_date=stay_date, 
+                           care_level_id=care_level_id, 
+                           default_equipment=default_equipment,
+                           patient_id=patient_id)
 
 @patients_bp.route('/patients/stays/delete/<int:stay_id>')
 def delete_stay(stay_id):
@@ -119,7 +167,7 @@ def delete_stay(stay_id):
 
     stays_handler = StaysHandler(WebPatientModule())
     patient_id = request.args.get('patient_id') 
-    if stays_handler.remove_stay(stay_id):
+    if stays_handler.remove_stay(stay_id, session['username']):
         flash("Stay deleted successfully")
     else:
         flash("Error deleting stay")
@@ -191,7 +239,7 @@ def view_equipment(patient_id):
         start_date = datetime.now().strftime('%Y-%m-%d')
         end_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
 
-        if equipment_handler.add_equipment(patient_id, equipment_id, start_date, end_date, daily_price):
+        if equipment_handler.add_equipment(patient_id, equipment_id, start_date, end_date, daily_price, session['username']):
             flash("Equipment added successfully")
         else:
             flash("Error adding equipment")

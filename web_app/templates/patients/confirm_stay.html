@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Confirm Stay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Confirm Stay for {{ patient_name }}</h1>
+    <p><strong>Date:</strong> {{ stay_date }}</p>
+    
+    <h2>Default Equipment</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for equip in default_equipment %}
+            <tr>
+                <td>{{ equip[0] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <form method="post" action="{{ url_for('patients.confirm_stay') }}">
+        <button type="submit">Confirm Stay and Equipment</button>
+    </form>
+    <a href="{{ url_for('patients.view_stays', patient_id=patient_id) }}">Cancel</a>
+</body>
+</html>

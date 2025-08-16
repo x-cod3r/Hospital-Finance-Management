@@ -6,7 +6,7 @@
 </head>
 <body>
     <h1>Edit Care Level</h1>
-    <a href="{{ url_for('settings.care_levels') }}">Back to Care Level Management</a>
+    <a href="{{ url_for('settings.care_levels') }}">Back to Care Levels</a>
 
     <form action="{{ url_for('settings.edit_care_level', care_level_id=care_level[0]) }}" method="post">
         <label for="name">Name:</label>

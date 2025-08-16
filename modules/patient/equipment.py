@@ -47,7 +47,7 @@ class EquipmentHandler:
         conn.close()
         return equipment
 
-    def add_equipment(self, patient_id, equipment_id, start_date, end_date, daily_price):
+    def add_equipment(self, patient_id, equipment_id, start_date, end_date, daily_price, current_user):
         """Add a new equipment record for a patient"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
@@ -59,7 +59,7 @@ class EquipmentHandler:
             cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
             cursor.execute("SELECT name FROM items_db.equipment WHERE id = ?", (equipment_id,))
             equipment_name = cursor.fetchone()[0]
-            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, "ADD_EQUIPMENT", f"Added equipment {equipment_name} for patient ID {patient_id}")
+            self.patient_module.auth_module.log_action(current_user, "ADD_EQUIPMENT", f"Added equipment {equipment_name} for patient ID {patient_id}")
             return True
         except sqlite3.Error as e:
             print(f"Error adding equipment: {e}")

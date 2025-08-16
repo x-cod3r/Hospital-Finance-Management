@@ -171,7 +171,7 @@ def manage_care_level_equipment():
     if selected_care_level_id:
         assigned_equipment = equipment_management_handler.load_assigned_equipment(selected_care_level_id)
 
-    return render_template('care_level_equipment.html', 
+    return render_template('settings/care_level_equipment.html', 
                            care_levels=care_levels, 
                            all_equipment=all_equipment, 
                            assigned_equipment=assigned_equipment, 
