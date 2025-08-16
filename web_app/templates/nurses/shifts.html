@@ -1,39 +1,52 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nurse Shifts</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Nurse Shifts</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>Patient</th>
-                    <th>Arrival</th>
-                    <th>Leave</th>
-                    <th>Hours</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for shift in shifts %}
-                    <tr>
-                        <td>{{ shift[1] }}</td>
-                        <td>{{ shift[2] }}</td>
-                        <td>{{ shift[3] }}</td>
-                        <td>{{ shift[4] }}</td>
-                        <td>
-                            <a href="#">Delete</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="#">Add Shift</a>
-    </div>
+    <h1>Shifts for Nurse {{ nurse_id }}</h1>
+    <a href="{{ url_for('nurses.list_nurses') }}">Back to Nurses</a>
+
+    <h2>Add Shift</h2>
+    <form action="{{ url_for('nurses.add_shift', nurse_id=nurse_id) }}" method="post">
+        <label for="patient_id">Patient ID:</label>
+        <input type="number" id="patient_id" name="patient_id" required>
+        <br>
+        <label for="arrival_datetime">Arrival:</label>
+        <input type="datetime-local" id="arrival_datetime" name="arrival_datetime" required>
+        <br>
+        <label for="leave_datetime">Leave:</label>
+        <input type="datetime-local" id="leave_datetime" name="leave_datetime" required>
+        <br>
+        <label for="nurse_level_id">Nurse Level:</label>
+        <input type="number" id="nurse_level_id" name="nurse_level_id" required>
+        <br>
+        <button type="submit">Add Shift</button>
+    </form>
+
+    <h2>Existing Shifts</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Arrival</th>
+                <th>Leave</th>
+                <th>Patient ID</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for shift in shifts %}
+            <tr>
+                <td>{{ shift.arrival_datetime }}</td>
+                <td>{{ shift.leave_datetime }}</td>
+                <td>{{ shift.patient_id }}</td>
+                <td>
+                    <a href="{{ url_for('nurses.delete_shift', shift_id=shift.id, nurse_id=nurse_id) }}">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>

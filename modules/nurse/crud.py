@@ -88,14 +88,18 @@ class NurseCRUD:
         cursor = conn.cursor()
         try:
             cursor.execute("SELECT name FROM nurses WHERE id = ?", (nurse_id,))
-            nurse_name = cursor.fetchone()[0]
-            cursor.execute("DELETE FROM nurse_shifts WHERE nurse_id = ?", (nurse_id,))
-            cursor.execute("DELETE FROM nurse_interventions WHERE nurse_id = ?", (nurse_id,))
-            cursor.execute("DELETE FROM nurse_payments WHERE nurse_id = ?", (nurse_id,))
-            cursor.execute("DELETE FROM nurses WHERE id = ?", (nurse_id,))
-            conn.commit()
-            self.auth_module.log_action(self.auth_module.current_user, "DELETE_NURSE", f"Deleted nurse: {nurse_name}")
-            return True
+            nurse = cursor.fetchone()
+            if nurse:
+                nurse_name = nurse[0]
+                cursor.execute("DELETE FROM nurse_shifts WHERE nurse_id = ?", (nurse_id,))
+                cursor.execute("DELETE FROM nurse_interventions WHERE nurse_id = ?", (nurse_id,))
+                cursor.execute("DELETE FROM nurse_payments WHERE nurse_id = ?", (nurse_id,))
+                cursor.execute("DELETE FROM nurses WHERE id = ?", (nurse_id,))
+                conn.commit()
+                self.auth_module.log_action(self.auth_module.current_user, "DELETE_NURSE", f"Deleted nurse: {nurse_name}")
+                return True
+            else:
+                return False
         except sqlite3.Error as e:
             print(f"Error deleting nurse: {e}")
             return False

@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sys
 import os
+import configparser
 
 # Add the parent directory to the path to allow imports from the 'modules' directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -22,6 +23,20 @@ app.secret_key = os.urandom(24)
 
 auth_module = AuthModule()
 
+# Read configuration
+config = configparser.ConfigParser()
+config.read('Config/config.ini')
+debug_mode = config.getboolean('DEBUG', 'debugmode', fallback=False)
+
+@app.before_request
+def before_request():
+    if debug_mode is True :
+            session["username"] = "admin"
+            session["password"] = "admin123"
+    #if debug_mode and 'username' not in session:
+        #if request.endpoint and 'static' not in request.endpoint and request.endpoint != 'login':
+            #session['username'] = 'admin'
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -41,6 +56,9 @@ def logout():
 
 @app.route('/')
 def index():
+    if debug_mode and 'username' not in session:
+        session['username'] = 'admin'
+
     if 'username' not in session:
         return redirect(url_for('login'))
     

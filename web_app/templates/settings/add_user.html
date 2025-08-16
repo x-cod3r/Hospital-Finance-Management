@@ -1,30 +1,51 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add User</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Add User</h1>
-        <form method="post">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            
-            <h2>Privileges</h2>
-            {% for group, privs in privileges.items() %}
-                <h3>{{ group }}</h3>
-                {% for p in privs %}
-                    <input type="checkbox" name="privileges" value="{{ p }}"> {{ p.replace('_', ' ').title() }}<br>
-                {% endfor %}
-            {% endfor %}
-            
-            <button type="submit">Create User</button>
-        </form>
-    </div>
+    <h1>Add User</h1>
+    <a href="{{ url_for('settings.users') }}">Back to User Management</a>
+
+    <form action="{{ url_for('settings.add_user') }}" method="post">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required>
+        <br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+        <br>
+        
+        <h3>Privileges</h3>
+        <input type="checkbox" name="privileges" value="view_doctors_tab"> View Doctors Tab<br>
+        <input type="checkbox" name="privileges" value="add_doctor"> Add Doctor<br>
+        <input type="checkbox" name="privileges" value="edit_doctor"> Edit Doctor<br>
+        <input type="checkbox" name="privileges" value="delete_doctor"> Delete Doctor<br>
+        <br>
+        <input type="checkbox" name="privileges" value="view_nurses_tab"> View Nurses Tab<br>
+        <input type="checkbox" name="privileges" value="add_nurse"> Add Nurse<br>
+        <input type="checkbox" name="privileges" value="edit_nurse"> Edit Nurse<br>
+        <input type="checkbox" name="privileges" value="delete_nurse"> Delete Nurse<br>
+        <br>
+        <input type="checkbox" name="privileges" value="view_patients_tab"> View Patients Tab<br>
+        <input type="checkbox" name="privileges" value="add_patient"> Add Patient<br>
+        <input type="checkbox" name="privileges" value="edit_patient"> Edit Patient<br>
+        <input type="checkbox" name="privileges" value="delete_patient"> Delete Patient<br>
+        <input type="checkbox" name="privileges" value="add_patient_stay"> Add Patient Stay<br>
+        <input type="checkbox" name="privileges" value="add_patient_item"> Add Patient Item<br>
+        <input type="checkbox" name="privileges" value="add_patient_equipment"> Add Patient Equipment<br>
+        <br>
+        <input type="checkbox" name="privileges" value="view_reports_tab"> View Reports Tab<br>
+        <input type="checkbox" name="privileges" value="generate_report"> Generate Report<br>
+        <input type="checkbox" name="privileges" value="export_report"> Export Report<br>
+        <br>
+        <input type="checkbox" name="privileges" value="view_settings_tab"> View Settings Tab<br>
+        <input type="checkbox" name="privileges" value="manage_users"> Manage Users<br>
+        <input type="checkbox" name="privileges" value="manage_items"> Manage Items<br>
+        <input type="checkbox" name="privileges" value="manage_care_levels"> Manage Care Levels<br>
+        <input type="checkbox" name="privileges" value="manage_equipment"> Manage Equipment<br>
+        <br>
+        <button type="submit">Create User</button>
+    </form>
 </body>
 </html>

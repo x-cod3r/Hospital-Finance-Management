@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nurse Salary</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Salary for Nurse {{ nurse_id }}</h1>
+    <a href="{{ url_for('nurses.list_nurses') }}">Back to Nurses</a>
+
+    <h2>Calculate Salary</h2>
+    <form action="{{ url_for('nurses.calculate_salary', nurse_id=nurse_id) }}" method="post">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" required>
+        <br>
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" required>
+        <br>
+        <button type="submit">Calculate</button>
+    </form>
+
+    {% if salary_details %}
+    <h2>Salary Details</h2>
+    <p><strong>Nurse:</strong> {{ salary_details.name }}</p>
+    <p><strong>Total Hours:</strong> {{ salary_details.total_hours }}</p>
+    <p><strong>Hourly Rate:</strong> {{ salary_details.hourly_rate }}</p>
+    <p><strong>Base Salary:</strong> {{ salary_details.base_salary }}</p>
+    <p><strong>Total Bonus:</strong> {{ salary_details.total_bonus }}</p>
+    <p><strong>Total Salary:</strong> {{ salary_details.total_salary }}</p>
+    {% endif %}
+</body>
+</html>

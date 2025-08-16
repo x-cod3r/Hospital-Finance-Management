@@ -1,25 +1,86 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Company Report</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Company Report</h1>
-        <form method="post">
-            <label for="from_date">From:</label>
-            <input type="date" id="from_date" name="from_date" required>
-            <label for="to_date">To:</label>
-            <input type="date" id="to_date" name="to_date" required>
-            <button type="submit">Generate Report</button>
-        </form>
-        {% if report_data %}
-            <h2>Report for {{ from_date }} to {{ to_date }}</h2>
-            <pre>{{ report_data }}</pre>
-        {% endif %}
-    </div>
+    <h1>Company Report</h1>
+    <a href="{{ url_for('index') }}">Back to Home</a>
+
+    <form action="{{ url_for('company.report') }}" method="post">
+        <label for="from_date">From:</label>
+        <input type="date" id="from_date" name="from_date" required>
+        <label for="to_date">To:</label>
+        <input type="date" id="to_date" name="to_date" required>
+        <button type="submit">Generate Report</button>
+    </form>
+
+    {% if report_data %}
+    <h2>Report from {{ report_data.from_date }} to {{ report_data.to_date }}</h2>
+    
+    <h3>Financial Summary</h3>
+    <p><strong>Total Patient Revenue:</strong> {{ report_data.total_patient_revenue }}</p>
+    <p><strong>Total Staff Cost:</strong> {{ report_data.total_staff_cost }}</p>
+    <p><strong>Pass-Through Costs:</strong> {{ report_data.pass_through_costs }}</p>
+    <p><strong>Total Operational Cost:</strong> {{ report_data.total_operational_cost }}</p>
+    <p><strong>Net Profit:</strong> {{ report_data.net_profit }}</p>
+
+    <h3>Doctor Costs</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for doctor in report_data.doctor_details %}
+            <tr>
+                <td>{{ doctor.name }}</td>
+                <td>{{ doctor.cost }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Nurse Costs</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Level</th>
+                <th>Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for nurse in report_data.nurse_details %}
+            <tr>
+                <td>{{ nurse.name }}</td>
+                <td>{{ nurse.level }}</td>
+                <td>{{ nurse.cost }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Patient Revenues</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Revenue</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patient in report_data.patient_details %}
+            <tr>
+                <td>{{ patient.name }}</td>
+                <td>{{ patient.revenue }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 </body>
 </html>

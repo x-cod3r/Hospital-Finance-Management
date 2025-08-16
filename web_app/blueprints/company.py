@@ -17,6 +17,7 @@ def report():
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    report_data = None
     if request.method == 'POST':
         from_date = request.form['from_date']
         to_date = request.form['to_date']
@@ -32,18 +33,17 @@ def report():
         total_operational_cost = total_staff_cost + pass_through_costs
         net_profit = total_patient_revenue - total_operational_cost
         
-        report_data = f"""
-FINANCIAL SUMMARY
-Total Patient Revenue: {total_patient_revenue}
-
-Operational Costs:
-  - Staff Costs: {total_staff_cost}
-  - Pass-Through Costs (Labs, Drugs, etc.): {pass_through_costs}
------------------
-Total Operational Costs: {total_operational_cost}
-
-Net Profit/Loss: {net_profit}
-"""
-        return render_template('report.html', report_data=report_data, from_date=from_date, to_date=to_date)
+        report_data = {
+            "from_date": from_date,
+            "to_date": to_date,
+            "total_patient_revenue": total_patient_revenue,
+            "total_staff_cost": total_staff_cost,
+            "pass_through_costs": pass_through_costs,
+            "total_operational_cost": total_operational_cost,
+            "net_profit": net_profit,
+            "doctor_details": doctor_costs['details'],
+            "nurse_details": nurse_costs['details'],
+            "patient_details": patient_revenues['details']
+        }
         
-    return render_template('report.html')
+    return render_template('report.html', report_data=report_data)

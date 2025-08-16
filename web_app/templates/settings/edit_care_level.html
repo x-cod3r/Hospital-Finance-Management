@@ -1,21 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Care Level</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Edit Care Level</h1>
-        <form method="post">
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name" value="{{ care_level[1] }}" required>
-            <label for="rate">Daily Rate:</label>
-            <input type="text" id="rate" name="rate" value="{{ care_level[2] }}" required>
-            <button type="submit">Update Care Level</button>
-        </form>
-    </div>
+    <h1>Edit Care Level</h1>
+    <a href="{{ url_for('settings.care_levels') }}">Back to Care Level Management</a>
+
+    <form action="{{ url_for('settings.edit_care_level', care_level_id=care_level[0]) }}" method="post">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" value="{{ care_level[1] }}" required>
+        <br>
+        <label for="rate">Daily Rate:</label>
+        <input type="number" step="0.01" id="rate" name="rate" value="{{ care_level[2] }}" required>
+        <br>
+        <button type="submit">Update Care Level</button>
+    </form>
 </body>
 </html>

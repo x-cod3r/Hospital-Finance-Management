@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient Costing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Costing for Patient {{ patient_id }}</h1>
+    <a href="{{ url_for('patients.list_patients') }}">Back to Patients</a>
+
+    {% if cost_details %}
+    <h2>Cost Details</h2>
+    <pre>{{ cost_details }}</pre>
+    {% else %}
+    <p>Could not calculate costs.</p>
+    {% endif %}
+</body>
+</html>

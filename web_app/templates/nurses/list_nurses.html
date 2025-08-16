@@ -27,6 +27,7 @@
                         <td>
                             <a href="{{ url_for('nurses.view_shifts', nurse_id=nurse[0]) }}">Shifts</a>
                             <a href="{{ url_for('nurses.view_interventions', nurse_id=nurse[0]) }}">Interventions</a>
+                            <a href="{{ url_for('nurses.calculate_salary', nurse_id=nurse[0]) }}">Salary</a>
                             <a href="{{ url_for('nurses.edit_nurse', nurse_id=nurse[0]) }}">Edit</a>
                             <a href="{{ url_for('nurses.delete_nurse', nurse_id=nurse[0]) }}">Delete</a>
                         </td>

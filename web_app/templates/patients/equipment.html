@@ -1,39 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Equipment</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Patient Equipment</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Daily Price</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in equipment %}
-                    <tr>
-                        <td>{{ item[1] }}</td>
-                        <td>{{ item[2] }}</td>
-                        <td>{{ item[3] }}</td>
-                        <td>{{ item[4] }}</td>
-                        <td>
-                            <a href="#">Delete</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="#">Add Equipment</a>
-    </div>
+    <h1>Equipment for Patient {{ patient_id }}</h1>
+    <a href="{{ url_for('patients.list_patients') }}">Back to Patients</a>
+
+    <h2>Add Equipment</h2>
+    <form action="{{ url_for('patients.view_equipment', patient_id=patient_id) }}" method="post">
+        <label for="equipment_id">Equipment:</label>
+        <select id="equipment_id" name="equipment_id" required>
+            {% for equip in all_equipment %}
+                <option value="{{ equip[0] }}">{{ equip[1] }}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" required>
+        <br>
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date">
+        <br>
+        <label for="daily_price">Daily Price:</label>
+        <input type="number" step="0.01" id="daily_price" name="daily_price" required>
+        <br>
+        <button type="submit">Add Equipment</button>
+    </form>
+
+    <h2>Assigned Equipment</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Daily Price</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for equip in equipment %}
+            <tr>
+                <td>{{ equip[1] }}</td>
+                <td>{{ equip[2] }}</td>
+                <td>{{ equip[3] }}</td>
+                <td>{{ equip[4] }}</td>
+                <td>
+                    <a href="{{ url_for('patients.delete_equipment', record_id=equip[0], patient_id=patient_id) }}">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>

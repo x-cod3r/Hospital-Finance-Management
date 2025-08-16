@@ -1,64 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Item Management</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Item Management</h1>
-        
-        <h2>Interventions</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Bonus</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for intervention in interventions %}
-                    <tr>
-                        <td>{{ intervention[1] }}</td>
-                        <td>{{ intervention[2] }}</td>
-                        <td>
-                            <a href="#">Edit</a>
-                            <a href="#">Delete</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="#">Add Intervention</a>
-        
-        {% for category, item_list in items.items() %}
-            <h2>{{ category.title() }}</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Price</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in item_list %}
-                        <tr>
-                            <td>{{ item[1] }}</td>
-                            <td>{{ item[2] }}</td>
-                            <td>
-                                <a href="#">Edit</a>
-                                <a href="#">Delete</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <a href="#">Add {{ category.title() }}</a>
-        {% endfor %}
-    </div>
+    <h1>Item Management</h1>
+    <a href="{{ url_for('settings.index') }}">Back to Settings</a>
+
+    <h2>Interventions</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Bonus</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for intervention in interventions %}
+            <tr>
+                <td>{{ intervention[1] }}</td>
+                <td>{{ intervention[2] }}</td>
+                <td>
+                    <a href="{{ url_for('settings.edit_intervention', intervention_id=intervention[0]) }}">Edit</a>
+                    <a href="{{ url_for('settings.delete_intervention', intervention_id=intervention[0]) }}">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('settings.add_intervention') }}">Add Intervention</a>
+
+    {% for category, item_list in items.items() %}
+    <h2>{{ category | capitalize }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in item_list %}
+            <tr>
+                <td>{{ item[1] }}</td>
+                <td>{{ item[2] }}</td>
+                <td>
+                    <a href="{{ url_for('settings.edit_item', item_id=item[0]) }}">Edit</a>
+                    <a href="{{ url_for('settings.delete_item', item_id=item[0]) }}">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('settings.add_item') }}">Add {{ category | capitalize }}</a>
+    {% endfor %}
 </body>
 </html>

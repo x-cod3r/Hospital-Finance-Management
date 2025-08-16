@@ -1,35 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>User Management</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>Username</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user in users %}
-                    <tr>
-                        <td>{{ user[0] }}</td>
-                        <td>{{ user[1] }}</td>
-                        <td>
-                            <a href="{{ url_for('settings.delete_user', username=user[0]) }}">Delete</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="{{ url_for('settings.add_user') }}">Add User</a>
-    </div>
+    <h1>User Management</h1>
+    <a href="{{ url_for('settings.index') }}">Back to Settings</a>
+
+    <h2>Users</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user[0] }}</td>
+                <td>{{ user[1] }}</td>
+                <td>
+                    <a href="{{ url_for('settings.delete_user', username=user[0]) }}">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="{{ url_for('settings.add_user') }}">Add User</a>
 </body>
 </html>

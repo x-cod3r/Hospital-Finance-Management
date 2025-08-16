@@ -1,34 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nurse Interventions</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Nurse Interventions</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Bonus</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for intervention in interventions %}
-                    <tr>
-                        <td>{{ intervention[1] }}</td>
-                        <td>{{ intervention[2] }}</td>
-                        <td>
-                            <a href="#">Add to Nurse</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <h1>Interventions for Nurse {{ nurse_id }}</h1>
+    <a href="{{ url_for('nurses.list_nurses') }}">Back to Nurses</a>
+
+    <h2>Add Intervention</h2>
+    <form action="{{ url_for('nurses.view_interventions', nurse_id=nurse_id) }}" method="post">
+        <label for="patient_id">Patient:</label>
+        <select id="patient_id" name="patient_id" required>
+            {% for patient in patients %}
+                <option value="{{ patient[0] }}">{{ patient[1] }}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" required>
+        <br>
+        <label for="intervention_id">Intervention:</label>
+        <select id="intervention_id" name="intervention_id" required>
+            {% for intervention in interventions %}
+                <option value="{{ intervention[0] }}">{{ intervention[1] }}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <button type="submit">Add Intervention</button>
+    </form>
+
+    <h2>Existing Interventions</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Intervention</th>
+                <th>Patient</th>
+                <th>Bonus</th>
+            </tr>
+        </thead>
+        <tbody>
+            {# This part needs to be implemented - loading existing interventions for the nurse #}
+        </tbody>
+    </table>
 </body>
 </html>

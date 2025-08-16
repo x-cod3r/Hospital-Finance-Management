@@ -1,37 +1,50 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Stays</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Patient Stays</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Care Level</th>
-                    <th>Cost</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for stay in stays %}
-                    <tr>
-                        <td>{{ stay[1] }}</td>
-                        <td>{{ stay[2] }}</td>
-                        <td>{{ stay[3] }}</td>
-                        <td>
-                            <a href="#">Delete</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="#">Add Stay</a>
-    </div>
+    <h1>Stays for Patient {{ patient_id }}</h1>
+    <a href="{{ url_for('patients.list_patients') }}">Back to Patients</a>
+
+    <h2>Add Stay</h2>
+    <form action="{{ url_for('patients.view_stays', patient_id=patient_id) }}" method="post">
+        <label for="stay_date">Date:</label>
+        <input type="date" id="stay_date" name="stay_date" required>
+        <br>
+        <label for="care_level_id">Care Level:</label>
+        <select id="care_level_id" name="care_level_id" required>
+            {% for level in care_levels %}
+                <option value="{{ level[0] }}">{{ level[1] }}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <button type="submit">Add Stay</button>
+    </form>
+
+    <h2>Existing Stays</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Care Level</th>
+                <th>Cost</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stay in stays %}
+            <tr>
+                <td>{{ stay[1] }}</td>
+                <td>{{ stay[2] }}</td>
+                <td>{{ stay[3] }}</td>
+                <td>
+                    <a href="{{ url_for('patients.delete_stay', stay_id=stay[0], patient_id=patient_id) }}">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>

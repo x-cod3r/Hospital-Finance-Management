@@ -31,6 +31,7 @@
                             <a href="{{ url_for('patients.view_items', patient_id=patient[0], category='radiology') }}">Radiology</a>
                             <a href="{{ url_for('patients.view_items', patient_id=patient[0], category='consultations') }}">Consultations</a>
                             <a href="{{ url_for('patients.view_equipment', patient_id=patient[0]) }}">Equipment</a>
+                            <a href="{{ url_for('patients.view_costing', patient_id=patient[0]) }}">Costing</a>
                             <a href="{{ url_for('patients.edit_patient', patient_id=patient[0]) }}">Edit</a>
                             <a href="{{ url_for('patients.delete_patient', patient_id=patient[0]) }}">Delete</a>
                         </td>
