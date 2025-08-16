@@ -39,6 +39,33 @@ class AuthModule:
             )
         ''')
         
+        # Create privileges table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS privileges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL
+            )
+        ''')
+        
+        # Create user_privileges table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_privileges (
+                user_id INTEGER,
+                privilege_id INTEGER,
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                FOREIGN KEY(privilege_id) REFERENCES privileges(id),
+                PRIMARY KEY(user_id, privilege_id)
+            )
+        ''')
+        
+        # Add default privileges
+        privileges = [
+            'manage_doctors', 'manage_nurses', 'manage_patients',
+            'manage_settings', 'view_reports'
+        ]
+        for p in privileges:
+            cursor.execute("INSERT OR IGNORE INTO privileges (name) VALUES (?)", (p,))
+        
         # Create default admin user if not exists
         cursor.execute("SELECT * FROM users WHERE username = ?", ("admin",))
         if not cursor.fetchone():
@@ -48,6 +75,14 @@ class AuthModule:
                 "INSERT INTO users (username, password_hash, can_delete) VALUES (?, ?, ?)",
                 ("admin", password_hash, 0)
             )
+        
+        # Grant all privileges to admin
+        cursor.execute("SELECT id FROM users WHERE username = ?", ("admin",))
+        admin_id = cursor.fetchone()[0]
+        cursor.execute("SELECT id FROM privileges")
+        privilege_ids = cursor.fetchall()
+        for p_id in privilege_ids:
+            cursor.execute("INSERT OR IGNORE INTO user_privileges (user_id, privilege_id) VALUES (?, ?)", (admin_id, p_id[0]))
         
         conn.commit()
         conn.close()
@@ -78,7 +113,18 @@ class AuthModule:
         conn.close()
         return False
     
-    def create_user(self, username, password, creator):
+    def has_privilege(self, username, privilege):
+        """Check if a user has a specific privilege"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT p.name FROM privileges p JOIN user_privileges up ON p.id = up.privilege_id JOIN users u ON u.id = up.user_id WHERE u.username = ? AND p.name = ?", (username, privilege))
+        result = cursor.fetchone()
+        
+        conn.close()
+        return result is not None
+    
+    def create_user(self, username, password, creator, privileges):
         """Create a new user"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -88,9 +134,16 @@ class AuthModule:
                 "INSERT INTO users (username, password_hash) VALUES (?, ?)",
                 (username, password_hash)
             )
+            user_id = cursor.lastrowid
             
+            # Assign privileges
+            for p_name in privileges:
+                cursor.execute("SELECT id FROM privileges WHERE name = ?", (p_name,))
+                p_id = cursor.fetchone()[0]
+                cursor.execute("INSERT INTO user_privileges (user_id, privilege_id) VALUES (?, ?)", (user_id, p_id))
+
             # Log the action
-            self.log_action(creator, "CREATE_USER", f"Created user: {username}", conn)
+            self.log_action(creator, "CREATE_USER", f"Created user: {username} with privileges: {', '.join(privileges)}", conn)
             
             conn.commit()
             conn.close()

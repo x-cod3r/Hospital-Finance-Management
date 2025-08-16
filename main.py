@@ -117,32 +117,45 @@ class ICUManagementApp:
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Create tabs
-        doctor_tab = ttk.Frame(notebook)
-        nurse_tab = ttk.Frame(notebook)
-        patient_tab = ttk.Frame(notebook)
-        company_tab = ttk.Frame(notebook)
-        settings_tab = ttk.Frame(notebook)
+        # Create and add tabs based on user privileges
+        current_user = self.auth_module.current_user
         
-        notebook.add(doctor_tab, text="Doctors")
-        notebook.add(nurse_tab, text="Nurses")
-        notebook.add(patient_tab, text="Patients")
-        notebook.add(company_tab, text="Company")
-        notebook.add(settings_tab, text="Settings")
+        if self.auth_module.has_privilege(current_user, 'manage_doctors'):
+            doctor_tab = ttk.Frame(notebook)
+            notebook.add(doctor_tab, text="Doctors")
+            doctor_module = DoctorModule(doctor_tab, self.auth_module)
         
-        # Initialize modules in their respective tabs
-        doctor_module = DoctorModule(doctor_tab, self.auth_module)
-        nurse_module = NurseModule(nurse_tab, self.auth_module)
-        patient_module = PatientModule(patient_tab, self.auth_module)
-        company_module = CompanyModule(company_tab)
-        settings_module = SettingsModule(settings_tab, self.auth_module)
+        if self.auth_module.has_privilege(current_user, 'manage_nurses'):
+            nurse_tab = ttk.Frame(notebook)
+            notebook.add(nurse_tab, text="Nurses")
+            nurse_module = NurseModule(nurse_tab, self.auth_module)
+            
+        if self.auth_module.has_privilege(current_user, 'manage_patients'):
+            patient_tab = ttk.Frame(notebook)
+            notebook.add(patient_tab, text="Patients")
+            patient_module = PatientModule(patient_tab, self.auth_module)
+
+        if self.auth_module.has_privilege(current_user, 'view_reports'):
+            company_tab = ttk.Frame(notebook)
+            notebook.add(company_tab, text="Company")
+            company_module = CompanyModule(company_tab)
+
+        if self.auth_module.has_privilege(current_user, 'manage_settings'):
+            settings_tab = ttk.Frame(notebook)
+            notebook.add(settings_tab, text="Settings")
+            settings_module = SettingsModule(settings_tab, self.auth_module)
 
         # Set up module connections
-        patient_module.doctor_module = doctor_module
-        patient_module.nurse_module = nurse_module
-        settings_module.doctor_module = doctor_module
-        settings_module.nurse_module = nurse_module
-        settings_module.patient_module = patient_module
+        if 'patient_module' in locals() and 'doctor_module' in locals():
+            patient_module.doctor_module = doctor_module
+        if 'patient_module' in locals() and 'nurse_module' in locals():
+            patient_module.nurse_module = nurse_module
+        if 'settings_module' in locals() and 'doctor_module' in locals():
+            settings_module.doctor_module = doctor_module
+        if 'settings_module' in locals() and 'nurse_module' in locals():
+            settings_module.nurse_module = nurse_module
+        if 'settings_module' in locals() and 'patient_module' in locals():
+            settings_module.patient_module = patient_module
     
     def show_about(self):
         """Show about dialog"""

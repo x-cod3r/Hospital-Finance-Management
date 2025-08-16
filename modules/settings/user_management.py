@@ -34,6 +34,19 @@ class UserManagementHandler:
         self.new_password_var = tk.StringVar()
         ttk.Entry(add_frame, textvariable=self.new_password_var, show="*").pack(fill=tk.X, pady=(0, 10))
         
+        privileges_frame = ttk.LabelFrame(add_frame, text="Privileges", padding="10")
+        privileges_frame.pack(fill=tk.X, pady=10)
+        
+        self.privileges_vars = {}
+        privileges = [
+            'manage_doctors', 'manage_nurses', 'manage_patients',
+            'manage_settings', 'view_reports'
+        ]
+        for p in privileges:
+            var = tk.BooleanVar()
+            ttk.Checkbutton(privileges_frame, text=p.replace('_', ' ').title(), variable=var).pack(anchor=tk.W)
+            self.privileges_vars[p] = var
+            
         ttk.Button(add_frame, text="Create User", command=self.create_user).pack(pady=10)
         
         self.load_users()
@@ -75,12 +88,16 @@ class UserManagementHandler:
         if not username or not password:
             show_error_message("Error", "Please enter both username and password")
             return
+            
+        privileges = [p for p, var in self.privileges_vars.items() if var.get()]
         
-        if self.auth_module.create_user(username, password, self.auth_module.current_user):
+        if self.auth_module.create_user(username, password, self.auth_module.current_user, privileges):
             messagebox.showinfo("Success", f"User '{username}' created successfully")
             self.load_users()
             
             self.new_username_var.set("")
             self.new_password_var.set("")
+            for var in self.privileges_vars.values():
+                var.set(False)
         else:
             show_error_message("Error", "Failed to create user (username may already exist)")
