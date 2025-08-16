@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Care Level Equipment</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Assign Equipment to Care Levels</h1>
+    <a href="{{ url_for('settings.index') }}">Back to Settings</a>
+
+    <div>
+        <h2>Select Care Level</h2>
+        <form method="get" action="{{ url_for('settings.manage_care_level_equipment') }}">
+            <select name="care_level_id" onchange="this.form.submit()">
+                <option value="">-- Select a Care Level --</option>
+                {% for level in care_levels %}
+                    <option value="{{ level[0] }}" {% if level[0] == selected_care_level_id %}selected{% endif %}>{{ level[1] }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    {% if selected_care_level_id %}
+    <div>
+        <h2>Assign Equipment</h2>
+        <form method="post" action="{{ url_for('settings.assign_equipment_to_care_level', care_level_id=selected_care_level_id) }}">
+            <select name="equipment_id">
+                {% for equip in all_equipment %}
+                    <option value="{{ equip[0] }}">{{ equip[1] }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Assign</button>
+        </form>
+    </div>
+
+    <div>
+        <h2>Assigned Equipment</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equip in assigned_equipment %}
+                <tr>
+                    <td>{{ equip[0] }}</td>
+                    <td>
+                        <a href="{{ url_for('settings.unassign_equipment_from_care_level', care_level_id=selected_care_level_id, equipment_id=equip[1]) }}">Unassign</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</body>
+</html>

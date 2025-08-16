@@ -155,6 +155,54 @@ def equipment():
     
     return render_template('settings_equipment.html', equipment=equipment)
 
+@settings_bp.route('/settings/care_level_equipment', methods=['GET'])
+def manage_care_level_equipment():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    care_level_management_handler = CareLevelManagementHandler(WebSettingsModule())
+    equipment_management_handler = EquipmentManagementHandler(WebSettingsModule())
+
+    care_levels = care_level_management_handler.load_care_levels()
+    all_equipment = equipment_management_handler.load_equipment()
+
+    selected_care_level_id = request.args.get('care_level_id', type=int)
+    assigned_equipment = []
+    if selected_care_level_id:
+        assigned_equipment = equipment_management_handler.load_assigned_equipment(selected_care_level_id)
+
+    return render_template('care_level_equipment.html', 
+                           care_levels=care_levels, 
+                           all_equipment=all_equipment, 
+                           assigned_equipment=assigned_equipment, 
+                           selected_care_level_id=selected_care_level_id)
+
+@settings_bp.route('/settings/care_level_equipment/assign/<int:care_level_id>', methods=['POST'])
+def assign_equipment_to_care_level(care_level_id):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    equipment_id = request.form.get('equipment_id', type=int)
+    if equipment_id:
+        equipment_management_handler = EquipmentManagementHandler(WebSettingsModule())
+        if equipment_management_handler.assign_equipment(care_level_id, equipment_id):
+            flash('Equipment assigned successfully.')
+        else:
+            flash('Equipment already assigned.')
+    return redirect(url_for('settings.manage_care_level_equipment', care_level_id=care_level_id))
+
+@settings_bp.route('/settings/care_level_equipment/unassign/<int:care_level_id>/<int:equipment_id>')
+def unassign_equipment_from_care_level(care_level_id, equipment_id):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    equipment_management_handler = EquipmentManagementHandler(WebSettingsModule())
+    if equipment_management_handler.unassign_equipment(care_level_id, equipment_id):
+        flash('Equipment unassigned successfully.')
+    else:
+        flash('Error unassigning equipment.')
+    return redirect(url_for('settings.manage_care_level_equipment', care_level_id=care_level_id))
+
 @settings_bp.route('/settings/items')
 def items():
     if 'username' not in session:

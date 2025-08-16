@@ -77,6 +77,10 @@ def view_stays(patient_id):
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    patient_crud = PatientCRUD(WebPatientModule(), auth_module)
+    patient = patient_crud.get_patient(patient_id)
+    patient_name = patient[1] if patient else "Unknown"
+    
     stays_handler = StaysHandler(WebPatientModule())
     
     if request.method == 'POST':
@@ -84,6 +88,21 @@ def view_stays(patient_id):
         care_level_id = request.form['care_level_id']
         if stays_handler.add_stay(patient_id, stay_date, care_level_id):
             flash("Stay added successfully")
+
+            # Add default equipment for the care level
+            equipment_handler = EquipmentHandler(WebPatientModule())
+            equipment_management_handler = EquipmentManagementHandler(WebSettingsModule())
+            default_equipment = equipment_management_handler.load_assigned_equipment(care_level_id)
+            
+            from datetime import datetime, timedelta
+            start_date = datetime.strptime(stay_date, '%Y-%m-%d')
+            end_date = start_date + timedelta(days=1)
+
+            for equip in default_equipment:
+                equipment_id = equip[1]
+                all_equipment = equipment_handler.load_equipment()
+                daily_price = next((eq[2] for eq in all_equipment if eq[0] == int(equipment_id)), 0)
+                equipment_handler.add_equipment(patient_id, equipment_id, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), daily_price)
         else:
             flash("Error adding stay")
         return redirect(url_for('patients.view_stays', patient_id=patient_id))
@@ -91,7 +110,7 @@ def view_stays(patient_id):
     stays = stays_handler.load_stays(patient_id)
     care_levels = stays_handler.load_care_levels()
     
-    return render_template('stays.html', stays=stays, care_levels=care_levels, patient_id=patient_id)
+    return render_template('stays.html', stays=stays, care_levels=care_levels, patient_id=patient_id, patient_name=patient_name)
 
 @patients_bp.route('/patients/stays/delete/<int:stay_id>')
 def delete_stay(stay_id):
@@ -110,6 +129,10 @@ def delete_stay(stay_id):
 def view_items(patient_id, category):
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    patient_crud = PatientCRUD(WebPatientModule(), auth_module)
+    patient = patient_crud.get_patient(patient_id)
+    patient_name = patient[1] if patient else "Unknown"
     
     items_handler = ItemsHandler(WebPatientModule())
     
@@ -131,7 +154,7 @@ def view_items(patient_id, category):
             self.parent = None
     all_items = ItemManagementHandler(WebSettingsModule()).load_items(category)
     
-    return render_template('items.html', items=items, all_items=all_items, patient_id=patient_id, category=category)
+    return render_template('items.html', items=items, all_items=all_items, patient_id=patient_id, category=category, patient_name=patient_name)
 
 @patients_bp.route('/patients/items/delete/<category>/<int:record_id>')
 def delete_item(category, record_id):
@@ -151,13 +174,23 @@ def view_equipment(patient_id):
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    patient_crud = PatientCRUD(WebPatientModule(), auth_module)
+    patient = patient_crud.get_patient(patient_id)
+    patient_name = patient[1] if patient else "Unknown"
+    
     equipment_handler = EquipmentHandler(WebPatientModule())
     
     if request.method == 'POST':
         equipment_id = request.form['equipment_id']
-        start_date = request.form['start_date']
-        end_date = request.form['end_date']
-        daily_price = request.form['daily_price']
+        
+        # Get the equipment details to fetch the price
+        all_equipment = equipment_handler.load_equipment()
+        daily_price = next((eq[2] for eq in all_equipment if eq[0] == int(equipment_id)), 0)
+
+        from datetime import datetime, timedelta
+        start_date = datetime.now().strftime('%Y-%m-%d')
+        end_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
         if equipment_handler.add_equipment(patient_id, equipment_id, start_date, end_date, daily_price):
             flash("Equipment added successfully")
         else:
@@ -167,7 +200,7 @@ def view_equipment(patient_id):
     equipment = equipment_handler.load_patient_equipment(patient_id)
     all_equipment = equipment_handler.load_equipment()
     
-    return render_template('equipment.html', equipment=equipment, all_equipment=all_equipment, patient_id=patient_id)
+    return render_template('equipment.html', equipment=equipment, all_equipment=all_equipment, patient_id=patient_id, patient_name=patient_name)
 
 @patients_bp.route('/patients/equipment/delete/<int:record_id>')
 def delete_equipment(record_id):
@@ -199,14 +232,19 @@ def view_costing(patient_id):
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    patient_crud = PatientCRUD(WebPatientModule(), auth_module)
+    patient = patient_crud.get_patient(patient_id)
+    patient_name = patient[1] if patient else "Unknown"
+    
     class MockPatientModule:
         def __init__(self):
             self.current_patient_id = patient_id
             self.crud_handler = PatientCRUD(self, auth_module)
+            self.parent = None
         def get_selected_patients(self):
             return [self.current_patient_id]
 
     costing_handler = CostingHandler(MockPatientModule())
     cost_details = costing_handler.calculate_cost()
     
-    return render_template('costing.html', cost_details=cost_details, patient_id=patient_id)
+    return render_template('costing.html', cost_details=cost_details, patient_id=patient_id, patient_name=patient_name)

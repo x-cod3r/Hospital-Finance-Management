@@ -5,26 +5,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Equipment for Patient {{ patient_id }}</h1>
+    <h1>Equipment for Patient {{ patient_name }}</h1>
     <a href="{{ url_for('patients.list_patients') }}">Back to Patients</a>
 
-    <h2>Add Equipment</h2>
+    <h2>Add Equipment for Today</h2>
     <form action="{{ url_for('patients.view_equipment', patient_id=patient_id) }}" method="post">
         <label for="equipment_id">Equipment:</label>
         <select id="equipment_id" name="equipment_id" required>
-            {% for equip in all_equipment %}
-                <option value="{{ equip[0] }}">{{ equip[1] }}</option>
+            {% for eq in all_equipment %}
+                <option value="{{ eq[0] }}">{{ eq[1] }}</option>
             {% endfor %}
         </select>
-        <br>
-        <label for="start_date">Start Date:</label>
-        <input type="date" id="start_date" name="start_date" required>
-        <br>
-        <label for="end_date">End Date:</label>
-        <input type="date" id="end_date" name="end_date">
-        <br>
-        <label for="daily_price">Daily Price:</label>
-        <input type="number" step="0.01" id="daily_price" name="daily_price" required>
         <br>
         <button type="submit">Add Equipment</button>
     </form>
