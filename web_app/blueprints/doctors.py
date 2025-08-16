@@ -11,6 +11,7 @@ from modules.doctor.shifts import ShiftsHandler
 from modules.doctor.interventions import InterventionsHandler
 from modules.doctor.salary import SalaryHandler
 from modules.auth import AuthModule
+from modules.utils import calculate_salary_details
 
 doctors_bp = Blueprint('doctors', __name__, template_folder='../templates/doctors')
 
@@ -73,10 +74,14 @@ def view_shifts(doctor_id):
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    doctor_crud = DoctorCRUD(WebDoctorModule(), auth_module)
+    doctor = doctor_crud.get_doctor(doctor_id)
+    doctor_name = doctor[1] if doctor else "Unknown"
+    
     shifts_handler = ShiftsHandler(WebDoctorModule())
     shifts = shifts_handler.get_shifts_for_doctor(doctor_id)
     
-    return render_template('shifts.html', shifts=shifts, doctor_id=doctor_id)
+    return render_template('doctors/shifts.html', shifts=shifts, doctor_id=doctor_id, doctor_name=doctor_name)
 
 @doctors_bp.route('/doctors/<int:doctor_id>/shifts/add', methods=['POST'])
 def add_shift(doctor_id):
@@ -121,6 +126,10 @@ def view_interventions(doctor_id):
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    doctor_crud = DoctorCRUD(WebDoctorModule(), auth_module)
+    doctor = doctor_crud.get_doctor(doctor_id)
+    doctor_name = doctor[1] if doctor else "Unknown"
+    
     interventions_handler = InterventionsHandler(WebDoctorModule())
     
     if request.method == 'POST':
@@ -145,7 +154,7 @@ def view_interventions(doctor_id):
 
     patients = PatientCRUD(WebPatientModule(), auth_module).load_patients()
     
-    return render_template('interventions.html', interventions=interventions, patients=patients, doctor_id=doctor_id)
+    return render_template('doctors/interventions.html', interventions=interventions, patients=patients, doctor_id=doctor_id, doctor_name=doctor_name)
 
 @doctors_bp.route('/doctors/delete/<int:doctor_id>')
 def delete_doctor(doctor_id):
@@ -164,13 +173,16 @@ def calculate_salary(doctor_id):
     if 'username' not in session:
         return redirect(url_for('login'))
 
+    doctor_crud = DoctorCRUD(WebDoctorModule(), auth_module)
+    doctor = doctor_crud.get_doctor(doctor_id)
+    doctor_name = doctor[1] if doctor else "Unknown"
+
     if request.method == 'POST':
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         
-        salary_handler = SalaryHandler(WebDoctorModule())
-        salary_details = salary_handler.calculate_salary_details("doctor", doctor_id, start_date, end_date)
+        salary_details = calculate_salary_details("doctor", doctor_id, start_date, end_date)
         
-        return render_template('salary.html', salary_details=salary_details, doctor_id=doctor_id)
+        return render_template('doctors/salary.html', salary_details=salary_details, doctor_id=doctor_id, doctor_name=doctor_name)
         
-    return render_template('salary.html', doctor_id=doctor_id)
+    return render_template('doctors/salary.html', doctor_id=doctor_id, doctor_name=doctor_name)

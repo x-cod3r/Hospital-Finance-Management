@@ -11,6 +11,7 @@ from modules.patient.items import ItemsHandler
 from modules.patient.equipment import EquipmentHandler
 from modules.patient.costing import CostingHandler
 from modules.auth import AuthModule
+from modules.settings.item_management import ItemManagementHandler
 
 patients_bp = Blueprint('patients', __name__, template_folder='../templates/patients')
 
@@ -125,8 +126,10 @@ def view_items(patient_id, category):
     items = items_handler.load_category_items(patient_id, category)
     
     # This is not ideal, but we need to get the item list for the form
-    from modules.settings.item_management import ItemManagementHandler
-    all_items = ItemManagementHandler(None).get_items_by_category(category)
+    class WebSettingsModule:
+        def __init__(self):
+            self.parent = None
+    all_items = ItemManagementHandler(WebSettingsModule()).load_items(category)
     
     return render_template('items.html', items=items, all_items=all_items, patient_id=patient_id, category=category)
 

@@ -11,6 +11,7 @@ from modules.nurse.shifts import ShiftsHandler
 from modules.nurse.interventions import InterventionsHandler
 from modules.nurse.salary import SalaryHandler
 from modules.auth import AuthModule
+from modules.utils import calculate_salary_details
 
 nurses_bp = Blueprint('nurses', __name__, template_folder='../templates/nurses')
 
@@ -75,10 +76,14 @@ def view_shifts(nurse_id):
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    nurse_crud = NurseCRUD(WebNurseModule(), auth_module)
+    nurse = nurse_crud.get_nurse(nurse_id)
+    nurse_name = nurse[1] if nurse else "Unknown"
+    
     shifts_handler = ShiftsHandler(WebNurseModule())
     shifts = shifts_handler.get_shifts_for_nurse(nurse_id)
     
-    return render_template('shifts.html', shifts=shifts, nurse_id=nurse_id)
+    return render_template('nurses/shifts.html', shifts=shifts, nurse_id=nurse_id, nurse_name=nurse_name)
 
 @nurses_bp.route('/nurses/<int:nurse_id>/shifts/add', methods=['POST'])
 def add_shift(nurse_id):
@@ -122,6 +127,10 @@ def view_interventions(nurse_id):
     if 'username' not in session:
         return redirect(url_for('login'))
     
+    nurse_crud = NurseCRUD(WebNurseModule(), auth_module)
+    nurse = nurse_crud.get_nurse(nurse_id)
+    nurse_name = nurse[1] if nurse else "Unknown"
+    
     interventions_handler = InterventionsHandler(WebNurseModule())
     
     if request.method == 'POST':
@@ -146,7 +155,7 @@ def view_interventions(nurse_id):
 
     patients = PatientCRUD(WebPatientModule(), auth_module).load_patients()
     
-    return render_template('interventions.html', interventions=interventions, patients=patients, nurse_id=nurse_id)
+    return render_template('nurses/interventions.html', interventions=interventions, patients=patients, nurse_id=nurse_id, nurse_name=nurse_name)
 
 @nurses_bp.route('/nurses/delete/<int:nurse_id>')
 def delete_nurse(nurse_id):
@@ -165,13 +174,16 @@ def calculate_salary(nurse_id):
     if 'username' not in session:
         return redirect(url_for('login'))
 
+    nurse_crud = NurseCRUD(WebNurseModule(), auth_module)
+    nurse = nurse_crud.get_nurse(nurse_id)
+    nurse_name = nurse[1] if nurse else "Unknown"
+
     if request.method == 'POST':
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         
-        salary_handler = SalaryHandler(WebNurseModule())
-        salary_details = salary_handler.calculate_salary_details("nurse", nurse_id, start_date, end_date)
+        salary_details = calculate_salary_details("nurse", nurse_id, start_date, end_date)
         
-        return render_template('nurses/salary.html', salary_details=salary_details, nurse_id=nurse_id)
+        return render_template('nurses/salary.html', salary_details=salary_details, nurse_id=nurse_id, nurse_name=nurse_name)
         
-    return render_template('nurses/salary.html', nurse_id=nurse_id)
+    return render_template('nurses/salary.html', nurse_id=nurse_id, nurse_name=nurse_name)
