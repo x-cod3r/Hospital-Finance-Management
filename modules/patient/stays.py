@@ -36,75 +36,50 @@ class StaysHandler:
         self.stays_tree.heading("Cost", text="Cost")
         self.stays_tree.pack(fill=tk.BOTH, expand=True)
 
-    def load_care_levels_for_combo(self):
-        """Load care levels into the combobox"""
+    def load_care_levels(self):
+        """Load care levels from the database"""
         conn = sqlite3.connect("db/items.db")
         cursor = conn.cursor()
         cursor.execute("SELECT id, name, daily_rate FROM care_levels ORDER BY name")
-        self.care_levels = cursor.fetchall()
+        care_levels = cursor.fetchall()
         conn.close()
-        
-        level_names = [f"{name} ({format_currency(rate)})" for id, name, rate in self.care_levels]
-        self.stay_care_level_combo['values'] = level_names
-        if level_names:
-            self.stay_care_level_combo.current(0)
+        return care_levels
 
-    def add_stay(self):
-        """Start the process of adding a new stay by switching to the equipment tab."""
-        selected_patients = self.patient_module.crud_handler.get_selected_patients()
-        if len(selected_patients) != 1:
-            messagebox.showwarning("Warning", "Please select exactly one patient to add a stay.")
-            return
+    def add_stay(self, patient_id, stay_date, care_level_id):
+        """Add a new stay for a patient"""
+        conn = sqlite3.connect("db/patients.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO patient_stays (patient_id, stay_date, care_level_id) VALUES (?, ?, ?)",
+                           (patient_id, stay_date, care_level_id))
+            conn.commit()
+            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, "ADD_STAY", f"Added stay for patient ID {patient_id} on {stay_date}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error adding stay: {e}")
+            return False
+        finally:
+            conn.close()
 
-        stay_date = self.stay_date_entry.get_date()
-        selected_level_text = self.stay_care_level_var.get()
-        
-        if not stay_date or not selected_level_text:
-            show_error_message("Error", "Please select a date and care level.")
-            return
+    def remove_stay(self, stay_id):
+        """Remove a stay record"""
+        conn = sqlite3.connect("db/patients.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT patient_id, stay_date FROM patient_stays WHERE id = ?", (stay_id,))
+            patient_id, stay_date = cursor.fetchone()
+            cursor.execute("DELETE FROM patient_stays WHERE id = ?", (stay_id,))
+            conn.commit()
+            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, "REMOVE_STAY", f"Removed stay for patient ID {patient_id} on {stay_date}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error removing stay: {e}")
+            return False
+        finally:
+            conn.close()
 
-        care_level_id = None
-        for id, name, rate in self.care_levels:
-            if f"{name} ({format_currency(rate)})" == selected_level_text:
-                care_level_id = id
-                break
-        
-        if not care_level_id:
-            show_error_message("Error", "Invalid care level selected.")
-            return
-
-        self.patient_module.switch_to_equipment_tab_for_stay(stay_date, care_level_id)
-
-    def remove_stay(self):
-        """Remove the selected stay record"""
-        selected_item = self.stays_tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select a stay to remove.")
-            return
-
-        if messagebox.askyesno("Confirm", "Are you sure you want to remove this stay record?"):
-            stay_id = selected_item
-
-            conn = sqlite3.connect("db/patients.db")
-            cursor = conn.cursor()
-            try:
-                cursor.execute("DELETE FROM patient_stays WHERE id = ?", (stay_id,))
-                conn.commit()
-                messagebox.showinfo("Success", "Stay record removed successfully.")
-                self.load_stays()
-            except sqlite3.Error as e:
-                show_error_message("Error", f"Failed to remove stay: {e}")
-            finally:
-                conn.close()
-
-    def load_stays(self):
-        """Load stay records for the selected patient"""
-        for i in self.stays_tree.get_children():
-            self.stays_tree.delete(i)
-
-        if not hasattr(self.patient_module, 'current_patient_id'):
-            return
-
+    def load_stays(self, patient_id):
+        """Load stay records for a specific patient"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
@@ -114,8 +89,7 @@ class StaysHandler:
             JOIN items_db.care_levels cl ON ps.care_level_id = cl.id
             WHERE ps.patient_id = ?
             ORDER BY ps.stay_date
-        """, (self.patient_module.current_patient_id,))
-        
-        for row in cursor.fetchall():
-            self.stays_tree.insert("", "end", iid=row[0], values=(row[1], row[2], format_currency(row[3])))
+        """, (patient_id,))
+        stays = cursor.fetchall()
         conn.close()
+        return stays

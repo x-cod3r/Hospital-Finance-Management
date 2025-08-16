@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Patient</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Edit Patient</h1>
+        <form method="post">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" value="{{ patient[1] }}" required>
+            <label for="admission_date">Admission Date:</label>
+            <input type="date" id="admission_date" name="admission_date" value="{{ patient[2] }}" required>
+            <label for="discharge_date">Discharge Date:</label>
+            <input type="date" id="discharge_date" name="discharge_date" value="{{ patient[3] }}">
+            <button type="submit">Update Patient</button>
+        </form>
+    </div>
+</body>
+</html>

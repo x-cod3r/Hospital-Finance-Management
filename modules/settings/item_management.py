@@ -67,204 +67,131 @@ class ItemManagementHandler:
         ttk.Button(buttons_frame, text="Delete", command=lambda c=category: self.delete_item(c)).pack(side=tk.LEFT)
 
     def load_interventions(self):
-        """Load interventions into the treeview"""
-        for i in self.interventions_tree.get_children():
-            self.interventions_tree.delete(i)
-        
+        """Load interventions from the database"""
         conn = sqlite3.connect("db/interventions.db")
         cursor = conn.cursor()
         cursor.execute("SELECT id, name, bonus_amount FROM interventions ORDER BY name")
-        for row in cursor.fetchall():
-            self.interventions_tree.insert("", "end", values=(row[1], f"{row[2]:.2f}"), iid=row[0])
+        interventions = cursor.fetchall()
         conn.close()
+        return interventions
 
-    def add_intervention(self):
-        """Show dialog to add a new intervention"""
-        self.intervention_dialog("Add Intervention")
-
-    def edit_intervention(self):
-        """Show dialog to edit the selected intervention"""
-        selected_item = self.interventions_tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select an intervention to edit.")
-            return
-        
-        item = self.interventions_tree.item(selected_item)
-        name, bonus = item['values']
-        self.intervention_dialog("Edit Intervention", item_id=selected_item, name=name, bonus=bonus)
-
-    def delete_intervention(self):
-        """Delete the selected intervention"""
-        selected_item = self.interventions_tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select an intervention to delete.")
-            return
-
-        if messagebox.askyesno("Confirm", "Are you sure you want to delete this intervention?"):
-            item = self.interventions_tree.item(selected_item)
-            name, _ = item['values']
-            conn = sqlite3.connect("db/interventions.db")
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM interventions WHERE id = ?", (selected_item,))
+    def add_intervention(self, name, bonus):
+        """Add a new intervention"""
+        conn = sqlite3.connect("db/interventions.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO interventions (name, bonus_amount) VALUES (?, ?)", (name, bonus))
             conn.commit()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "CREATE_INTERVENTION", f"Created intervention: {name}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error adding intervention: {e}")
+            return False
+        finally:
             conn.close()
+
+    def get_intervention(self, intervention_id):
+        """Get a single intervention by ID"""
+        conn = sqlite3.connect("db/interventions.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, bonus_amount FROM interventions WHERE id = ?", (intervention_id,))
+        intervention = cursor.fetchone()
+        conn.close()
+        return intervention
+
+    def edit_intervention(self, intervention_id, name, bonus):
+        """Edit an intervention"""
+        conn = sqlite3.connect("db/interventions.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("UPDATE interventions SET name = ?, bonus_amount = ? WHERE id = ?", (name, bonus, intervention_id))
+            conn.commit()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "UPDATE_INTERVENTION", f"Updated intervention: {name}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error updating intervention: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def delete_intervention(self, intervention_id):
+        """Delete an intervention"""
+        conn = sqlite3.connect("db/interventions.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT name FROM interventions WHERE id = ?", (intervention_id,))
+            name = cursor.fetchone()[0]
+            cursor.execute("DELETE FROM interventions WHERE id = ?", (intervention_id,))
+            conn.commit()
             self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "DELETE_INTERVENTION", f"Deleted intervention: {name}")
-            self.load_interventions()
-
-    def intervention_dialog(self, title, item_id=None, name="", bonus=""):
-        """Dialog for adding/editing interventions"""
-        dialog = tk.Toplevel(self.parent)
-        dialog.title(title)
-        dialog.geometry("300x150")
-        dialog.transient(self.parent)
-        dialog.grab_set()
-
-        ttk.Label(dialog, text="Name:").pack(pady=(10, 0))
-        name_var = tk.StringVar(value=name)
-        ttk.Entry(dialog, textvariable=name_var).pack(fill=tk.X, padx=10)
-
-        ttk.Label(dialog, text="Bonus Amount:").pack(pady=(10, 0))
-        bonus_var = tk.StringVar(value=bonus)
-        ttk.Entry(dialog, textvariable=bonus_var).pack(fill=tk.X, padx=10)
-
-        def save():
-            new_name = name_var.get().strip()
-            new_bonus = bonus_var.get().strip()
-
-            if not new_name or not new_bonus:
-                show_error_message("Error", "All fields are required.")
-                return
-
-            try:
-                new_bonus = float(new_bonus)
-            except ValueError:
-                show_error_message("Error", "Bonus must be a number.")
-                return
-
-            conn = sqlite3.connect("db/interventions.db")
-            cursor = conn.cursor()
-            if item_id:
-                cursor.execute("UPDATE interventions SET name = ?, bonus_amount = ? WHERE id = ?", (new_name, new_bonus, item_id))
-                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "UPDATE_INTERVENTION", f"Updated intervention: {new_name}")
-            else:
-                cursor.execute("INSERT INTO interventions (name, bonus_amount) VALUES (?, ?)", (new_name, new_bonus))
-                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "CREATE_INTERVENTION", f"Created intervention: {new_name}")
-            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Error deleting intervention: {e}")
+            return False
+        finally:
             conn.close()
-            self.load_interventions()
-            self.settings_module._refresh_other_modules()
-            dialog.destroy()
 
-        ttk.Button(dialog, text="Save", command=save).pack(pady=10)
-
-    def load_items(self, category=None):
-        """Load items for a specific category or all categories"""
-        if category:
-            categories_to_load = [category]
-        else:
-            categories_to_load = self.categories
-
+    def load_items(self, category):
+        """Load items for a specific category from the database"""
         conn = sqlite3.connect("db/items.db")
         cursor = conn.cursor()
-
-        for cat in categories_to_load:
-            tree = self.item_trees.get(cat)
-            if not tree:
-                continue
-            
-            for i in tree.get_children():
-                tree.delete(i)
-            
-            cursor.execute("SELECT id, name, price FROM items WHERE category = ? ORDER BY name", (cat,))
-            for row in cursor.fetchall():
-                tree.insert("", "end", values=(row[1], f"{row[2]:.2f}"), iid=row[0])
-        
+        cursor.execute("SELECT id, name, price FROM items WHERE category = ? ORDER BY name", (category,))
+        items = cursor.fetchall()
         conn.close()
+        return items
 
-    def add_item(self, category):
-        """Show dialog to add a new item"""
-        self.item_dialog("Add Item", category=category)
-
-    def edit_item(self, category):
-        """Show dialog to edit the selected item"""
-        tree = self.item_trees[category]
-        selected_item = tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select an item to edit.")
-            return
-        
-        item = tree.item(selected_item)
-        name, price = item['values']
-        self.item_dialog("Edit Item", item_id=selected_item, category=category, name=name, price=price)
-
-    def delete_item(self, category):
-        """Delete the selected item"""
-        tree = self.item_trees[category]
-        selected_item = tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select an item to delete.")
-            return
-
-        if messagebox.askyesno("Confirm", "Are you sure you want to delete this item?"):
-            item = tree.item(selected_item)
-            name, _ = item['values']
-            conn = sqlite3.connect("db/items.db")
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM items WHERE id = ?", (selected_item,))
+    def add_item(self, category, name, price):
+        """Add a new item"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO items (category, name, price) VALUES (?, ?, ?)", (category, name, price))
             conn.commit()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, f"CREATE_ITEM", f"Created item: {name} in {category}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error adding item: {e}")
+            return False
+        finally:
             conn.close()
+
+    def get_item(self, item_id):
+        """Get a single item by ID"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, category, price FROM items WHERE id = ?", (item_id,))
+        item = cursor.fetchone()
+        conn.close()
+        return item
+
+    def edit_item(self, item_id, category, name, price):
+        """Edit an item"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("UPDATE items SET category = ?, name = ?, price = ? WHERE id = ?", (category, name, price, item_id))
+            conn.commit()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, f"UPDATE_ITEM", f"Updated item: {name} in {category}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error updating item: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def delete_item(self, item_id):
+        """Delete an item"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT name, category FROM items WHERE id = ?", (item_id,))
+            name, category = cursor.fetchone()
+            cursor.execute("DELETE FROM items WHERE id = ?", (item_id,))
+            conn.commit()
             self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, f"DELETE_ITEM", f"Deleted item: {name} from {category}")
-            self.load_items(category)
-            self.settings_module._refresh_other_modules()
-
-    def item_dialog(self, title, item_id=None, category="", name="", price=""):
-        """Dialog for adding/editing items"""
-        dialog = tk.Toplevel(self.parent)
-        dialog.title(title)
-        dialog.geometry("300x200")
-        dialog.transient(self.parent)
-        dialog.grab_set()
-
-        ttk.Label(dialog, text="Category:").pack(pady=(10, 0))
-        category_var = tk.StringVar(value=category)
-        category_entry = ttk.Entry(dialog, textvariable=category_var, state="readonly")
-        category_entry.pack(fill=tk.X, padx=10)
-
-        ttk.Label(dialog, text="Name:").pack(pady=(10, 0))
-        name_var = tk.StringVar(value=name)
-        ttk.Entry(dialog, textvariable=name_var).pack(fill=tk.X, padx=10)
-
-        ttk.Label(dialog, text="Price:").pack(pady=(10, 0))
-        price_var = tk.StringVar(value=price)
-        ttk.Entry(dialog, textvariable=price_var).pack(fill=tk.X, padx=10)
-
-        def save():
-            new_category = category_var.get().strip()
-            new_name = name_var.get().strip()
-            new_price = price_var.get().strip()
-
-            if not all([new_category, new_name, new_price]):
-                show_error_message("Error", "All fields are required.")
-                return
-
-            try:
-                new_price = float(new_price)
-            except ValueError:
-                show_error_message("Error", "Price must be a number.")
-                return
-
-            conn = sqlite3.connect("db/items.db")
-            cursor = conn.cursor()
-            if item_id:
-                cursor.execute("UPDATE items SET category = ?, name = ?, price = ? WHERE id = ?", (new_category, new_name, new_price, item_id))
-                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, f"UPDATE_ITEM", f"Updated item: {new_name} in {new_category}")
-            else:
-                cursor.execute("INSERT INTO items (category, name, price) VALUES (?, ?, ?)", (new_category, new_name, new_price))
-                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, f"CREATE_ITEM", f"Created item: {new_name} in {new_category}")
-            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Error deleting item: {e}")
+            return False
+        finally:
             conn.close()
-            self.load_items(new_category)
-            self.settings_module._refresh_other_modules()
-            dialog.destroy()
-
-        ttk.Button(dialog, text="Save", command=save).pack(pady=10)

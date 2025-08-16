@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Settings</h1>
+        <ul>
+            {% if auth_module.has_privilege(session['username'], 'manage_users') %}
+                <li><a href="{{ url_for('settings.users') }}">User Management</a></li>
+            {% endif %}
+            {% if auth_module.has_privilege(session['username'], 'manage_items') %}
+                <li><a href="{{ url_for('settings.items') }}">Item Management</a></li>
+            {% endif %}
+            {% if auth_module.has_privilege(session['username'], 'manage_care_levels') %}
+                <li><a href="{{ url_for('settings.care_levels') }}">Care Level Management</a></li>
+            {% endif %}
+            {% if auth_module.has_privilege(session['username'], 'manage_equipment') %}
+                <li><a href="{{ url_for('settings.equipment') }}">Equipment Management</a></li>
+            {% endif %}
+            <li><a href="#">Audit Log</a></li>
+        </ul>
+    </div>
+</body>
+</html>

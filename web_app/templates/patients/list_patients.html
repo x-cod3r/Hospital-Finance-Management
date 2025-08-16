@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Patients</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Admission Date</th>
+                    <th>Discharge Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for patient in patients %}
+                    <tr>
+                        <td>{{ patient[1] }}</td>
+                        <td>{{ patient[2] }}</td>
+                        <td>{{ patient[3] }}</td>
+                        <td>
+                            <a href="{{ url_for('patients.view_stays', patient_id=patient[0]) }}">Stays</a>
+                            <a href="{{ url_for('patients.view_items', patient_id=patient[0], category='labs') }}">Labs</a>
+                            <a href="{{ url_for('patients.view_items', patient_id=patient[0], category='drugs') }}">Drugs</a>
+                            <a href="{{ url_for('patients.view_items', patient_id=patient[0], category='radiology') }}">Radiology</a>
+                            <a href="{{ url_for('patients.view_items', patient_id=patient[0], category='consultations') }}">Consultations</a>
+                            <a href="{{ url_for('patients.view_equipment', patient_id=patient[0]) }}">Equipment</a>
+                            <a href="{{ url_for('patients.edit_patient', patient_id=patient[0]) }}">Edit</a>
+                            <a href="{{ url_for('patients.delete_patient', patient_id=patient[0]) }}">Delete</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <a href="{{ url_for('patients.add_patient') }}">Add Patient</a>
+    </div>
+</body>
+</html>

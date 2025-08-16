@@ -38,93 +38,59 @@ class EquipmentHandler:
         self.equipment_tree.heading("Daily Price", text="Daily Price")
         self.equipment_tree.pack(fill=tk.BOTH, expand=True)
 
-    def load_equipment_for_combo(self):
-        """Load equipment into the combobox"""
+    def load_equipment(self):
+        """Load equipment from the database"""
         conn = sqlite3.connect("db/items.db")
         cursor = conn.cursor()
         cursor.execute("SELECT id, name, daily_rental_price FROM equipment ORDER BY name")
-        self.equipment_list = cursor.fetchall()
+        equipment = cursor.fetchall()
         conn.close()
-        
-        equipment_names = [f"{name} ({format_currency(price)})" for id, name, price in self.equipment_list]
-        self.equipment_combo['values'] = equipment_names
-        if equipment_names:
-            self.equipment_combo.current(0)
+        return equipment
 
-    def add_equipment(self):
-        """Add a new equipment record for the selected patient"""
-        selected_patients = self.patient_module.crud_handler.get_selected_patients()
-        if not selected_patients:
-            messagebox.showwarning("Warning", "Please select at least one patient.")
-            return
-
-        start_date = datetime.now()
-        end_date = start_date + timedelta(days=1)
-        start_date_str = start_date.strftime('%Y-%m-%d')
-        end_date_str = end_date.strftime('%Y-%m-%d')
-
-        selected_equipment_text = self.equipment_var.get()
-        
-        if not selected_equipment_text:
-            show_error_message("Error", "Please select equipment.")
-            return
-
-        equipment_id = None
-        daily_price = None
-        for id, name, price in self.equipment_list:
-            if f"{name} ({format_currency(price)})" == selected_equipment_text:
-                equipment_id = id
-                daily_price = price
-                break
-        
-        if not equipment_id:
-            show_error_message("Error", "Invalid equipment selected.")
-            return
-
+    def add_equipment(self, patient_id, equipment_id, start_date, end_date, daily_price):
+        """Add a new equipment record for a patient"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         try:
-            for patient_id in selected_patients:
-                cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, end_date, daily_rental_price) VALUES (?, ?, ?, ?, ?)", 
-                               (patient_id, equipment_id, start_date_str, end_date_str, daily_price))
+            cursor.execute("INSERT INTO patient_equipment (patient_id, equipment_id, start_date, end_date, daily_rental_price) VALUES (?, ?, ?, ?, ?)", 
+                           (patient_id, equipment_id, start_date, end_date, daily_price))
             conn.commit()
-            messagebox.showinfo("Success", "Equipment added successfully for a one-day rental.")
-            if len(selected_patients) == 1:
-                self.load_patient_equipment()
+            
+            cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
+            cursor.execute("SELECT name FROM items_db.equipment WHERE id = ?", (equipment_id,))
+            equipment_name = cursor.fetchone()[0]
+            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, "ADD_EQUIPMENT", f"Added equipment {equipment_name} for patient ID {patient_id}")
+            return True
         except sqlite3.Error as e:
-            show_error_message("Error", f"Failed to add equipment: {e}")
+            print(f"Error adding equipment: {e}")
+            return False
         finally:
             conn.close()
 
-    def remove_equipment(self):
-        """Remove the selected equipment record"""
-        selected_item = self.equipment_tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select equipment to remove.")
-            return
+    def remove_equipment(self, record_id):
+        """Remove an equipment record"""
+        conn = sqlite3.connect("db/patients.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT patient_id, equipment_id FROM patient_equipment WHERE id = ?", (record_id,))
+            patient_id, equipment_id = cursor.fetchone()
+            
+            cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
+            cursor.execute("SELECT name FROM items_db.equipment WHERE id = ?", (equipment_id,))
+            equipment_name = cursor.fetchone()[0]
 
-        if messagebox.askyesno("Confirm", "Are you sure you want to remove this equipment?"):
-            record_id = selected_item
-            conn = sqlite3.connect("db/patients.db")
-            cursor = conn.cursor()
-            try:
-                cursor.execute("DELETE FROM patient_equipment WHERE id = ?", (record_id,))
-                conn.commit()
-                messagebox.showinfo("Success", "Equipment removed successfully.")
-                self.load_patient_equipment()
-            except sqlite3.Error as e:
-                show_error_message("Error", f"Failed to remove equipment: {e}")
-            finally:
-                conn.close()
+            cursor.execute("DELETE FROM patient_equipment WHERE id = ?", (record_id,))
+            conn.commit()
+            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, "REMOVE_EQUIPMENT", f"Removed equipment {equipment_name} for patient ID {patient_id}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error removing equipment: {e}")
+            return False
+        finally:
+            conn.close()
 
-    def load_patient_equipment(self):
-        """Load equipment records for the selected patient"""
-        for i in self.equipment_tree.get_children():
-            self.equipment_tree.delete(i)
-
-        if not hasattr(self.patient_module, 'current_patient_id'):
-            return
-
+    def load_patient_equipment(self, patient_id):
+        """Load equipment records for a specific patient"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
@@ -134,11 +100,10 @@ class EquipmentHandler:
             JOIN items_db.equipment e ON pe.equipment_id = e.id
             WHERE pe.patient_id = ?
             ORDER BY pe.start_date
-        """, (self.patient_module.current_patient_id,))
-        
-        for row in cursor.fetchall():
-            self.equipment_tree.insert("", "end", iid=row[0], values=(row[1], row[2], row[3] or "", format_currency(row[4])))
+        """, (patient_id,))
+        equipment = cursor.fetchall()
         conn.close()
+        return equipment
 
     def load_defaults_for_stay(self, stay_date, care_level_id):
         """Load default equipment for a new stay."""

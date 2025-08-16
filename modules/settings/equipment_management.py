@@ -48,92 +48,70 @@ class EquipmentManagementHandler:
         ttk.Button(assignment_frame, text="Unassign Selected Equipment", command=self.unassign_equipment).pack()
 
     def load_equipment(self):
-        """Load equipment into the treeview"""
-        for i in self.equipment_tree.get_children():
-            self.equipment_tree.delete(i)
-        
+        """Load equipment from the database"""
         conn = sqlite3.connect("db/items.db")
         cursor = conn.cursor()
         cursor.execute("SELECT id, name, daily_rental_price FROM equipment ORDER BY name")
-        for row in cursor.fetchall():
-            self.equipment_tree.insert("", "end", values=(row[1], f"{row[2]:.2f}"), iid=row[0])
+        equipment = cursor.fetchall()
         conn.close()
+        return equipment
 
-    def add_equipment(self):
-        self.equipment_dialog("Add Equipment")
-
-    def edit_equipment(self):
-        selected_item = self.equipment_tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select equipment to edit.")
-            return
-        
-        item = self.equipment_tree.item(selected_item)
-        name, price = item['values']
-        self.equipment_dialog("Edit Equipment", item_id=selected_item, name=name, price=price)
-
-    def delete_equipment(self):
-        selected_item = self.equipment_tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select equipment to delete.")
-            return
-
-        if messagebox.askyesno("Confirm", "Are you sure you want to delete this equipment?"):
-            item = self.equipment_tree.item(selected_item)
-            name, _ = item['values']
-            conn = sqlite3.connect("db/items.db")
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM equipment WHERE id = ?", (selected_item,))
-            cursor.execute("DELETE FROM care_level_equipment WHERE equipment_id = ?", (selected_item,))
+    def add_equipment(self, name, price):
+        """Add new equipment"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO equipment (name, daily_rental_price) VALUES (?, ?)", (name, price))
             conn.commit()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "CREATE_EQUIPMENT", f"Created equipment: {name}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error adding equipment: {e}")
+            return False
+        finally:
             conn.close()
+
+    def get_equipment(self, equipment_id):
+        """Get a single piece of equipment by ID"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, daily_rental_price FROM equipment WHERE id = ?", (equipment_id,))
+        equipment = cursor.fetchone()
+        conn.close()
+        return equipment
+
+    def edit_equipment(self, equipment_id, name, price):
+        """Edit equipment"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("UPDATE equipment SET name = ?, daily_rental_price = ? WHERE id = ?", (name, price, equipment_id))
+            conn.commit()
+            self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "UPDATE_EQUIPMENT", f"Updated equipment: {name}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error updating equipment: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def delete_equipment(self, equipment_id):
+        """Delete equipment"""
+        conn = sqlite3.connect("db/items.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT name FROM equipment WHERE id = ?", (equipment_id,))
+            name = cursor.fetchone()[0]
+            cursor.execute("DELETE FROM equipment WHERE id = ?", (equipment_id,))
+            cursor.execute("DELETE FROM care_level_equipment WHERE equipment_id = ?", (equipment_id,))
+            conn.commit()
             self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "DELETE_EQUIPMENT", f"Deleted equipment: {name}")
-            self.load_equipment()
-            self.load_assigned_equipment()
-
-    def equipment_dialog(self, title, item_id=None, name="", price=""):
-        dialog = tk.Toplevel(self.parent)
-        dialog.title(title)
-        dialog.geometry("300x150")
-        dialog.transient(self.parent)
-        dialog.grab_set()
-
-        ttk.Label(dialog, text="Name:").pack(pady=(10, 0))
-        name_var = tk.StringVar(value=name)
-        ttk.Entry(dialog, textvariable=name_var).pack(fill=tk.X, padx=10)
-
-        ttk.Label(dialog, text="Daily Rental Price:").pack(pady=(10, 0))
-        price_var = tk.StringVar(value=price)
-        ttk.Entry(dialog, textvariable=price_var).pack(fill=tk.X, padx=10)
-
-        def save():
-            new_name = name_var.get().strip()
-            new_price = price_var.get().strip()
-
-            if not new_name or not new_price:
-                show_error_message("Error", "All fields are required.")
-                return
-
-            try:
-                new_price = float(new_price)
-            except ValueError:
-                show_error_message("Error", "Price must be a number.")
-                return
-
-            conn = sqlite3.connect("db/items.db")
-            cursor = conn.cursor()
-            if item_id:
-                cursor.execute("UPDATE equipment SET name = ?, daily_rental_price = ? WHERE id = ?", (new_name, new_price, item_id))
-                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "UPDATE_EQUIPMENT", f"Updated equipment: {new_name}")
-            else:
-                cursor.execute("INSERT INTO equipment (name, daily_rental_price) VALUES (?, ?)", (new_name, new_price))
-                self.settings_module.auth_module.log_action(self.settings_module.auth_module.current_user, "CREATE_EQUIPMENT", f"Created equipment: {new_name}")
-            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Error deleting equipment: {e}")
+            return False
+        finally:
             conn.close()
-            self.load_equipment()
-            dialog.destroy()
-
-        ttk.Button(dialog, text="Save", command=save).pack(pady=10)
 
     def load_care_levels(self):
         conn = sqlite3.connect("db/items.db")

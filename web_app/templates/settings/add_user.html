@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add User</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Add User</h1>
+        <form method="post">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            
+            <h2>Privileges</h2>
+            {% for group, privs in privileges.items() %}
+                <h3>{{ group }}</h3>
+                {% for p in privs %}
+                    <input type="checkbox" name="privileges" value="{{ p }}"> {{ p.replace('_', ' ').title() }}<br>
+                {% endfor %}
+            {% endfor %}
+            
+            <button type="submit">Create User</button>
+        </form>
+    </div>
+</body>
+</html>

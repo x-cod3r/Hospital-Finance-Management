@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Company Report</h1>
+        <form method="post">
+            <label for="from_date">From:</label>
+            <input type="date" id="from_date" name="from_date" required>
+            <label for="to_date">To:</label>
+            <input type="date" id="to_date" name="to_date" required>
+            <button type="submit">Generate Report</button>
+        </form>
+        {% if report_data %}
+            <h2>Report for {{ from_date }} to {{ to_date }}</h2>
+            <pre>{{ report_data }}</pre>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -79,16 +79,8 @@ class ItemsHandler:
         
         self.load_category_items(category)
 
-    def load_category_items(self, category):
-        """Load existing items for a category"""
-        category_vars = getattr(self.patient_module, f"{category}_vars")
-        if not hasattr(self.patient_module, 'current_patient_id'):
-            return
-        
-        tree = category_vars['tree']
-        for item in tree.get_children():
-            tree.delete(item)
-        
+    def load_category_items(self, patient_id, category):
+        """Load existing items for a category for a specific patient"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         
@@ -101,113 +93,55 @@ class ItemsHandler:
             JOIN items_db.items i ON p.item_id = i.id
             WHERE p.patient_id = ?
             ORDER BY p.date
-        """, (self.patient_module.current_patient_id,))
+        """, (patient_id,))
         
         items = cursor.fetchall()
         conn.close()
-        
-        for item in items:
-            record_id, date, name, quantity, price = item
-            total = quantity * price
-            tree.insert("", "end", values=(record_id, date, name, quantity, format_currency(price), format_currency(total)))
+        return items
 
-    def add_category_item(self, category):
-        """Add an item to a category for selected patients"""
-        category_vars = getattr(self.patient_module, f"{category}_vars")
-        selected_patients = self.patient_module.crud_handler.get_selected_patients()
-        if not selected_patients:
-            messagebox.showwarning("Warning", "Please select at least one patient")
-            return
-        
-        item_text = category_vars['item'].get()
-        if not item_text:
-            show_error_message("Error", "Please select an item")
-            return
-        
-        item_name = item_text.split(" (")[0]
-        items_list = category_vars['items_list']
-        item_id = None
-        
-        for item in items_list:
-            if item[1] == item_name:
-                item_id = item[0]
-                break
-        
-        if not item_id:
-            show_error_message("Error", "Invalid item selected")
-            return
-        
-        date = category_vars['date'].get().strip()
-        try:
-            quantity = int(category_vars['quantity'].get())
-        except ValueError:
-            show_error_message("Error", "Please enter a valid quantity")
-            return
-        
-        if not date:
-            show_error_message("Error", "Please enter a date")
-            return
-        
+    def add_category_item(self, patient_id, category, item_id, date, quantity):
+        """Add an item to a category for a specific patient"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         
         table_name = f"patient_{category}"
         try:
-            for patient_id in selected_patients:
-                cursor.execute(f"""
-                    INSERT INTO {table_name} (patient_id, date, item_id, quantity)
-                    VALUES (?, ?, ?, ?)
-                """, (patient_id, date, item_id, quantity))
-                self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, f"ADD_{category.upper()}", f"Added {item_name} (x{quantity}) for patient ID {patient_id}")
+            cursor.execute(f"""
+                INSERT INTO {table_name} (patient_id, date, item_id, quantity)
+                VALUES (?, ?, ?, ?)
+            """, (patient_id, date, item_id, quantity))
             conn.commit()
-            messagebox.showinfo("Success", f"{category.capitalize()} item added to {len(selected_patients)} patient(s) successfully")
             
-            if len(selected_patients) == 1:
-                self.load_category_items(category)
-            
-            if category_vars.get('items_list'):
-                category_vars['item_combo'].current(0)
-            else:
-                category_vars['item'].set("")
-            category_vars['quantity'].set("1")
+            cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
+            cursor.execute("SELECT name FROM items_db.items WHERE id = ?", (item_id,))
+            item_name = cursor.fetchone()[0]
+            self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, f"ADD_{category.upper()}", f"Added {item_name} (x{quantity}) for patient ID {patient_id}")
+            return True
         except sqlite3.Error as e:
-            show_error_message("Error", f"Failed to add item: {e}")
+            print(f"Error adding item: {e}")
+            return False
         finally:
             conn.close()
 
-    def remove_category_item(self, category):
-        """Remove the selected item from a category"""
-        category_vars = getattr(self.patient_module, f"{category}_vars")
-        tree = category_vars.get('tree')
-        if not tree:
-            return
-
-        selected_item = tree.focus()
-        if not selected_item:
-            messagebox.showwarning("Warning", "Please select an item to remove")
-            return
-
-        result = messagebox.askyesno("Confirm Delete", "Are you sure you want to remove this item?")
-        if not result:
-            return
-
-        item_values = tree.item(selected_item, 'values')
-        record_id = item_values[0]
-
+    def remove_category_item(self, category, record_id):
+        """Remove an item from a category"""
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         table_name = f"patient_{category}"
         try:
-            item_name = item_values[2]
-            quantity = item_values[3]
-            patient_id = self.patient_module.current_patient_id
+            cursor.execute(f"SELECT patient_id, item_id, quantity FROM {table_name} WHERE id = ?", (record_id,))
+            patient_id, item_id, quantity = cursor.fetchone()
+            
+            cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
+            cursor.execute("SELECT name FROM items_db.items WHERE id = ?", (item_id,))
+            item_name = cursor.fetchone()[0]
+            
             cursor.execute(f"DELETE FROM {table_name} WHERE id = ?", (record_id,))
             conn.commit()
             self.patient_module.auth_module.log_action(self.patient_module.auth_module.current_user, f"REMOVE_{category.upper()}", f"Removed {item_name} (x{quantity}) for patient ID {patient_id}")
-            messagebox.showinfo("Success", "Item removed successfully")
-            
-            self.load_category_items(category)
+            return True
         except sqlite3.Error as e:
-            show_error_message("Error", f"Failed to remove item: {e}")
+            print(f"Error removing item: {e}")
+            return False
         finally:
             conn.close()

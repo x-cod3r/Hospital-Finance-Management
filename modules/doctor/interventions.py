@@ -9,60 +9,32 @@ class InterventionsHandler:
         self.parent = doctor_module.parent
 
     def load_interventions(self):
-        """Load interventions into combobox"""
+        """Load interventions from the database"""
         conn = sqlite3.connect("db/interventions.db")
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM interventions ORDER BY name")
+        cursor.execute("SELECT id, name, bonus_amount FROM interventions ORDER BY name")
         interventions = cursor.fetchall()
         conn.close()
-        
-        self.doctor_module.intervention_combo['values'] = [i[0] for i in interventions]
+        return interventions
 
-    def add_intervention(self):
-        """Add intervention for selected doctors"""
-        selected_doctors = self.doctor_module.crud_handler.get_selected_doctors()
-        if not selected_doctors:
-            messagebox.showwarning("Warning", "Please select at least one doctor")
-            return
-        
-        date = self.doctor_module.intervention_date_var.get().strip()
-        intervention_name = self.doctor_module.intervention_var.get().strip()
-        
-        if not date or not intervention_name:
-            show_error_message("Error", "Please select date and intervention")
-            return
-        
-        conn = sqlite3.connect("db/interventions.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM interventions WHERE name = ?", (intervention_name,))
-        intervention = cursor.fetchone()
-        conn.close()
-        
-        if not intervention:
-            show_error_message("Error", "Invalid intervention selected")
-            return
-        
-        intervention_id = intervention[0]
-
-        patient_text = self.doctor_module.intervention_patient_var.get()
-        if not patient_text:
-            show_error_message("Error", "Please select a patient")
-            return
-        patient_id = int(patient_text.split(":")[0])
-        
+    def add_intervention(self, doctor_id, patient_id, date, intervention_id):
+        """Add a new intervention for a doctor"""
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
         try:
-            for doctor_id in selected_doctors:
-                cursor.execute("""
-                    INSERT INTO doctor_interventions (doctor_id, patient_id, date, intervention_id)
-                    VALUES (?, ?, ?, ?)
-                """, (doctor_id, patient_id, date, intervention_id))
+            cursor.execute("""
+                INSERT INTO doctor_interventions (doctor_id, patient_id, date, intervention_id)
+                VALUES (?, ?, ?, ?)
+            """, (doctor_id, patient_id, date, intervention_id))
             conn.commit()
-            messagebox.showinfo("Success", f"Intervention added for {len(selected_doctors)} doctors successfully")
             
-            self.doctor_module.intervention_var.set("")
+            cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
+            cursor.execute("SELECT name FROM interventions_db.interventions WHERE id = ?", (intervention_id,))
+            intervention_name = cursor.fetchone()[0]
+            self.doctor_module.auth_module.log_action(self.doctor_module.auth_module.current_user, "ADD_INTERVENTION", f"Added intervention {intervention_name} for doctor ID {doctor_id}")
+            return True
         except sqlite3.Error as e:
-            show_error_message("Error", f"Failed to add intervention: {e}")
+            print(f"Error adding intervention: {e}")
+            return False
         finally:
             conn.close()

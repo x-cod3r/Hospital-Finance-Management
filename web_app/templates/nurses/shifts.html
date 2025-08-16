@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nurse Shifts</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Nurse Shifts</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Patient</th>
+                    <th>Arrival</th>
+                    <th>Leave</th>
+                    <th>Hours</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for shift in shifts %}
+                    <tr>
+                        <td>{{ shift[1] }}</td>
+                        <td>{{ shift[2] }}</td>
+                        <td>{{ shift[3] }}</td>
+                        <td>{{ shift[4] }}</td>
+                        <td>
+                            <a href="#">Delete</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <a href="#">Add Shift</a>
+    </div>
+</body>
+</html>

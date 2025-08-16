@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctors</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Doctors</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Hourly Rate</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doctor in doctors %}
+                    <tr>
+                        <td>{{ doctor[1] }}</td>
+                        <td>{{ doctor[2] }}</td>
+                        <td>
+                            <a href="{{ url_for('doctors.view_shifts', doctor_id=doctor[0]) }}">Shifts</a>
+                            <a href="{{ url_for('doctors.view_interventions', doctor_id=doctor[0]) }}">Interventions</a>
+                            <a href="{{ url_for('doctors.edit_doctor', doctor_id=doctor[0]) }}">Edit</a>
+                            <a href="{{ url_for('doctors.delete_doctor', doctor_id=doctor[0]) }}">Delete</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <a href="{{ url_for('doctors.add_doctor') }}">Add Doctor</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Nurse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Edit Nurse</h1>
+        <form method="post">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" value="{{ nurse[1] }}" required>
+            <label for="level">Level:</label>
+            <input type="text" id="level" name="level" value="{{ nurse[2] }}" required>
+            <label for="rate">Hourly Rate:</label>
+            <input type="text" id="rate" name="rate" value="{{ nurse[3] }}" required>
+            <button type="submit">Update Nurse</button>
+        </form>
+    </div>
+</body>
+</html>

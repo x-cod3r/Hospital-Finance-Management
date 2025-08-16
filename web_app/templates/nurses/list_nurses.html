@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nurses</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Nurses</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Level</th>
+                    <th>Hourly Rate</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for nurse in nurses %}
+                    <tr>
+                        <td>{{ nurse[1] }}</td>
+                        <td>{{ nurse[2] }}</td>
+                        <td>{{ nurse[3] }}</td>
+                        <td>
+                            <a href="{{ url_for('nurses.view_shifts', nurse_id=nurse[0]) }}">Shifts</a>
+                            <a href="{{ url_for('nurses.view_interventions', nurse_id=nurse[0]) }}">Interventions</a>
+                            <a href="{{ url_for('nurses.edit_nurse', nurse_id=nurse[0]) }}">Edit</a>
+                            <a href="{{ url_for('nurses.delete_nurse', nurse_id=nurse[0]) }}">Delete</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <a href="{{ url_for('nurses.add_nurse') }}">Add Nurse</a>
+    </div>
+</body>
+</html>

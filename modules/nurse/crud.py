@@ -15,24 +15,13 @@ class NurseCRUD:
         return [nurse_id for nurse_id, var in self.nurse_module.nurse_vars.items() if var.get()]
 
     def load_nurses(self):
-        """Load nurses into a list of checkboxes"""
-        for widget in self.nurse_module.scrollable_frame.winfo_children():
-            widget.destroy()
-        self.nurse_module.nurse_vars = {}
-        
+        """Load nurses from the database"""
         conn = sqlite3.connect("db/nurses.db")
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, level FROM nurses ORDER BY name")
+        cursor.execute("SELECT id, name, level, hourly_rate FROM nurses ORDER BY name")
         nurses = cursor.fetchall()
         conn.close()
-        
-        for nurse in nurses:
-            nurse_id, nurse_name, nurse_level = nurse
-            var = tk.BooleanVar()
-            cb = ttk.Checkbutton(self.nurse_module.scrollable_frame, text=nurse_name, variable=var,
-                                 command=lambda nurse_id=nurse_id: self.on_nurse_select(nurse_id))
-            cb.pack(fill='x', padx=5, pady=2)
-            self.nurse_module.nurse_vars[nurse_id] = var
+        return nurses
 
     def on_nurse_select(self, nurse_id):
         """Handle nurse selection from checkbox"""
@@ -53,160 +42,62 @@ class NurseCRUD:
                 self.nurse_module.rate_var.set("")
                 delattr(self.nurse_module, 'current_nurse_id')
 
-    def add_nurse(self):
+    def add_nurse(self, name, level, rate):
         """Add a new nurse"""
-        add_window = tk.Toplevel(self.parent)
-        add_window.title("Add Nurse")
-        add_window.geometry("300x150")
-        add_window.transient(self.parent)
-        add_window.grab_set()
-        
-        add_window.geometry("+%d+%d" % (add_window.winfo_screenwidth()/2 - 150,
-                                        add_window.winfo_screenheight()/2 - 75))
-        
-        ttk.Label(add_window, text="Nurse Name:").pack(pady=(10, 0))
-        name_entry = ttk.Entry(add_window, width=30)
-        name_entry.pack(pady=5)
-        name_entry.focus()
-        
-        ttk.Label(add_window, text="Hourly Rate:").pack()
-        rate_entry = ttk.Entry(add_window, width=30)
-        rate_entry.pack(pady=5)
-        rate_entry.insert(0, "80.0")
-        
-        def save_nurse():
-            name = name_entry.get().strip()
-            level = "ICU"  # Default level
-            try:
-                rate = float(rate_entry.get())
-            except ValueError:
-                show_error_message("Error", "Please enter a valid hourly rate")
-                return
-            
-            if not name:
-                show_error_message("Error", "Please enter a nurse name")
-                return
-            
-            conn = sqlite3.connect("db/nurses.db")
-            cursor = conn.cursor()
-            try:
-                cursor.execute("INSERT INTO nurses (name, level, hourly_rate) VALUES (?, ?, ?)", (name, level, rate))
-                conn.commit()
-                self.auth_module.log_action(self.auth_module.current_user, "CREATE_NURSE", f"Created nurse: {name}")
-                messagebox.showinfo("Success", "Nurse added successfully")
-                add_window.destroy()
-                self.load_nurses()
-            except sqlite3.Error as e:
-                show_error_message("Error", f"Failed to add nurse: {e}")
-            finally:
-                conn.close()
-        
-        ttk.Button(add_window, text="Save", command=save_nurse).pack(pady=10)
-        rate_entry.bind("<Return>", lambda event: save_nurse())
-
-    def edit_nurse(self):
-        """Edit selected nurse"""
-        selected_nurses = self.get_selected_nurses()
-        if len(selected_nurses) != 1:
-            messagebox.showwarning("Warning", "Please select exactly one nurse to edit")
-            return
-        self.nurse_module.current_nurse_id = selected_nurses[0]
-        
-        conn = sqlite3.connect("db/nurses.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT name, level, hourly_rate FROM nurses WHERE id = ?", (self.nurse_module.current_nurse_id,))
-        nurse = cursor.fetchone()
-        conn.close()
-        
-        if not nurse:
-            return
-        
-        edit_window = tk.Toplevel(self.parent)
-        edit_window.title("Edit Nurse")
-        edit_window.geometry("300x150")
-        edit_window.transient(self.parent)
-        edit_window.grab_set()
-        
-        edit_window.geometry("+%d+%d" % (edit_window.winfo_screenwidth()/2 - 150,
-                                         edit_window.winfo_screenheight()/2 - 75))
-        
-        ttk.Label(edit_window, text="Nurse Name:").pack(pady=(10, 0))
-        name_entry = ttk.Entry(edit_window, width=30)
-        name_entry.pack(pady=5)
-        name_entry.insert(0, nurse[0])
-        name_entry.focus()
-        
-        ttk.Label(edit_window, text="Hourly Rate:").pack()
-        rate_entry = ttk.Entry(edit_window, width=30)
-        rate_entry.pack(pady=5)
-        rate_entry.insert(0, str(nurse[2]))
-        
-        def save_nurse():
-            name = name_entry.get().strip()
-            level = nurse[1] # Keep the existing level
-            try:
-                rate = float(rate_entry.get())
-            except ValueError:
-                show_error_message("Error", "Please enter a valid hourly rate")
-                return
-            
-            if not name:
-                show_error_message("Error", "Please enter a nurse name")
-                return
-            
-            conn = sqlite3.connect("db/nurses.db")
-            cursor = conn.cursor()
-            try:
-                cursor.execute("UPDATE nurses SET name = ?, level = ?, hourly_rate = ? WHERE id = ?", 
-                              (name, level, rate, self.nurse_module.current_nurse_id))
-                conn.commit()
-                self.auth_module.log_action(self.auth_module.current_user, "UPDATE_NURSE", f"Updated nurse: {name}")
-                messagebox.showinfo("Success", "Nurse updated successfully")
-                edit_window.destroy()
-                self.load_nurses()
-                self.nurse_module.name_var.set(name)
-                self.nurse_module.rate_var.set(format_currency(rate))
-            except sqlite3.Error as e:
-                show_error_message("Error", f"Failed to update nurse: {e}")
-            finally:
-                conn.close()
-        
-        ttk.Button(edit_window, text="Save", command=save_nurse).pack(pady=10)
-        rate_entry.bind("<Return>", lambda event: save_nurse())
-
-    def delete_nurse(self):
-        """Delete selected nurse(s)"""
-        selected_nurses = self.get_selected_nurses()
-        if not selected_nurses:
-            messagebox.showwarning("Warning", "Please select at least one nurse to delete")
-            return
-        
-        result = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete {len(selected_nurses)} nurse(s)?")
-        if not result:
-            return
-        
         conn = sqlite3.connect("db/nurses.db")
         cursor = conn.cursor()
         try:
-            for nurse_id in selected_nurses:
-                cursor.execute("SELECT name FROM nurses WHERE id = ?", (nurse_id,))
-                nurse_name = cursor.fetchone()[0]
-                cursor.execute("DELETE FROM nurse_shifts WHERE nurse_id = ?", (nurse_id,))
-                cursor.execute("DELETE FROM nurse_interventions WHERE nurse_id = ?", (nurse_id,))
-                cursor.execute("DELETE FROM nurse_payments WHERE nurse_id = ?", (nurse_id,))
-                cursor.execute("DELETE FROM nurses WHERE id = ?", (nurse_id,))
-                self.auth_module.log_action(self.auth_module.current_user, "DELETE_NURSE", f"Deleted nurse: {nurse_name}")
+            cursor.execute("INSERT INTO nurses (name, level, hourly_rate) VALUES (?, ?, ?)", (name, level, rate))
             conn.commit()
-            
-            messagebox.showinfo("Success", f"{len(selected_nurses)} nurse(s) deleted successfully")
-            self.load_nurses()
-            
-            self.nurse_module.name_var.set("")
-            self.nurse_module.rate_var.set("")
-            if hasattr(self.nurse_module, 'current_nurse_id'):
-                delattr(self.nurse_module, 'current_nurse_id')
-            self.load_nurses()
+            self.auth_module.log_action(self.auth_module.current_user, "CREATE_NURSE", f"Created nurse: {name}")
+            return True
         except sqlite3.Error as e:
-            show_error_message("Error", f"Failed to delete nurse: {e}")
+            print(f"Error adding nurse: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def get_nurse(self, nurse_id):
+        """Get a single nurse by ID"""
+        conn = sqlite3.connect("db/nurses.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, level, hourly_rate FROM nurses WHERE id = ?", (nurse_id,))
+        nurse = cursor.fetchone()
+        conn.close()
+        return nurse
+
+    def edit_nurse(self, nurse_id, name, level, rate):
+        """Edit a nurse"""
+        conn = sqlite3.connect("db/nurses.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("UPDATE nurses SET name = ?, level = ?, hourly_rate = ? WHERE id = ?", 
+                          (name, level, rate, nurse_id))
+            conn.commit()
+            self.auth_module.log_action(self.auth_module.current_user, "UPDATE_NURSE", f"Updated nurse: {name}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error updating nurse: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def delete_nurse(self, nurse_id):
+        """Delete a nurse"""
+        conn = sqlite3.connect("db/nurses.db")
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT name FROM nurses WHERE id = ?", (nurse_id,))
+            nurse_name = cursor.fetchone()[0]
+            cursor.execute("DELETE FROM nurse_shifts WHERE nurse_id = ?", (nurse_id,))
+            cursor.execute("DELETE FROM nurse_interventions WHERE nurse_id = ?", (nurse_id,))
+            cursor.execute("DELETE FROM nurse_payments WHERE nurse_id = ?", (nurse_id,))
+            cursor.execute("DELETE FROM nurses WHERE id = ?", (nurse_id,))
+            conn.commit()
+            self.auth_module.log_action(self.auth_module.current_user, "DELETE_NURSE", f"Deleted nurse: {nurse_name}")
+            return True
+        except sqlite3.Error as e:
+            print(f"Error deleting nurse: {e}")
+            return False
         finally:
             conn.close()

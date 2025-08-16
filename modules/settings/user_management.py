@@ -74,52 +74,13 @@ class UserManagementHandler:
         self.load_users()
 
     def load_users(self):
-        """Load users into listbox"""
-        self.users_listbox.delete(0, tk.END)
-        users = self.auth_module.get_all_users()
-        
-        for user in users:
-            username, created_at = user
-            self.users_listbox.insert(tk.END, f"{username} (Created: {created_at})")
+        """Load users from the database"""
+        return self.auth_module.get_all_users()
 
-    def delete_user(self):
-        """Delete selected user"""
-        selection = self.users_listbox.curselection()
-        if not selection:
-            messagebox.showwarning("Warning", "Please select a user to delete")
-            return
-        
-        user_text = self.users_listbox.get(selection[0])
-        username = user_text.split(" ")[0]
-        
-        result = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete user '{username}'?")
-        if not result:
-            return
-        
-        if self.auth_module.delete_user(username, self.auth_module.current_user):
-            messagebox.showinfo("Success", f"User '{username}' deleted successfully")
-            self.load_users()
-        else:
-            show_error_message("Error", "Failed to delete user")
+    def delete_user(self, username):
+        """Delete a user"""
+        return self.auth_module.delete_user(username, self.auth_module.current_user)
 
-    def create_user(self):
+    def create_user(self, username, password, privileges):
         """Create a new user"""
-        username = self.new_username_var.get().strip()
-        password = self.new_password_var.get().strip()
-        
-        if not username or not password:
-            show_error_message("Error", "Please enter both username and password")
-            return
-            
-        privileges = [p for p, var in self.privileges_vars.items() if var.get()]
-        
-        if self.auth_module.create_user(username, password, self.auth_module.current_user, privileges):
-            messagebox.showinfo("Success", f"User '{username}' created successfully")
-            self.load_users()
-            
-            self.new_username_var.set("")
-            self.new_password_var.set("")
-            for var in self.privileges_vars.values():
-                var.set(False)
-        else:
-            show_error_message("Error", "Failed to create user (username may already exist)")
+        return self.auth_module.create_user(username, password, self.auth_module.current_user, privileges)

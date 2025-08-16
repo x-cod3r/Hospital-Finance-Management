@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <ul>
+                {% if privileges.view_doctors_tab %}
+                    <li><a href="{{ url_for('doctors.list_doctors') }}">Doctors</a></li>
+                {% endif %}
+                {% if privileges.view_nurses_tab %}
+                    <li><a href="{{ url_for('nurses.list_nurses') }}">Nurses</a></li>
+                {% endif %}
+                {% if privileges.view_patients_tab %}
+                    <li><a href="{{ url_for('patients.list_patients') }}">Patients</a></li>
+                {% endif %}
+                {% if privileges.view_reports_tab %}
+                    <li><a href="{{ url_for('company.report') }}">Company</a></li>
+                {% endif %}
+                {% if privileges.view_settings_tab %}
+                    <li><a href="{{ url_for('settings.index') }}">Settings</a></li>
+                {% endif %}
+            </ul>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </nav>
+        <h1>Welcome, {{ username }}!</h1>
+        <p>This is the main dashboard. The different modules will be displayed here.</p>
+    </div>
+</body>
+</html>
