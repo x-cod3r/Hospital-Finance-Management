@@ -155,7 +155,6 @@ class NurseModule:
 
         ttk.Button(salary_frame, text="Calculate Salary", command=self.salary_handler.calculate_salary).grid(row=1, column=0, columnspan=2, pady=5)
         ttk.Button(salary_frame, text="Export as Excel", command=lambda: self.salary_handler.export_salary_sheet('xlsx')).grid(row=1, column=2, pady=5)
-        ttk.Button(salary_frame, text="Export as PDF", command=lambda: self.salary_handler.export_salary_sheet('pdf')).grid(row=1, column=3, pady=5)
         
         details_frame.columnconfigure(1, weight=1)
 
