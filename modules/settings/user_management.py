@@ -38,14 +38,21 @@ class UserManagementHandler:
         privileges_frame.pack(fill=tk.X, pady=10)
         
         self.privileges_vars = {}
-        privileges = [
-            'manage_doctors', 'manage_nurses', 'manage_patients',
-            'manage_settings', 'view_reports'
-        ]
-        for p in privileges:
-            var = tk.BooleanVar()
-            ttk.Checkbutton(privileges_frame, text=p.replace('_', ' ').title(), variable=var).pack(anchor=tk.W)
-            self.privileges_vars[p] = var
+        privileges = {
+            "Doctors": ['view_doctors_tab', 'add_doctor', 'edit_doctor', 'delete_doctor'],
+            "Nurses": ['view_nurses_tab', 'add_nurse', 'edit_nurse', 'delete_nurse'],
+            "Patients": ['view_patients_tab', 'add_patient', 'edit_patient', 'delete_patient', 'add_patient_stay', 'add_patient_item', 'add_patient_equipment'],
+            "Reports": ['view_reports_tab', 'generate_report', 'export_report'],
+            "Settings": ['view_settings_tab', 'manage_users', 'manage_items', 'manage_care_levels', 'manage_equipment']
+        }
+        
+        for group, privs in privileges.items():
+            group_frame = ttk.LabelFrame(privileges_frame, text=group)
+            group_frame.pack(fill=tk.X, pady=5)
+            for p in privs:
+                var = tk.BooleanVar()
+                ttk.Checkbutton(group_frame, text=p.replace('_', ' ').title(), variable=var).pack(anchor=tk.W)
+                self.privileges_vars[p] = var
             
         ttk.Button(add_frame, text="Create User", command=self.create_user).pack(pady=10)
         

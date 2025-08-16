@@ -51,9 +51,14 @@ class PatientModule:
         buttons_frame = ttk.Frame(list_frame)
         buttons_frame.pack(fill=tk.X, pady=(5, 0))
 
-        ttk.Button(buttons_frame, text="Add Patient", command=self.crud_handler.add_patient).pack(fill=tk.X, pady=(0, 5))
-        ttk.Button(buttons_frame, text="Edit Patient", command=self.crud_handler.edit_patient).pack(fill=tk.X, pady=(0, 5))
-        ttk.Button(buttons_frame, text="Delete Patient", command=self.crud_handler.delete_patient).pack(fill=tk.X)
+        current_user = self.auth_module.current_user
+        
+        if self.auth_module.has_privilege(current_user, 'add_patient'):
+            ttk.Button(buttons_frame, text="Add Patient", command=self.crud_handler.add_patient).pack(fill=tk.X, pady=(0, 5))
+        if self.auth_module.has_privilege(current_user, 'edit_patient'):
+            ttk.Button(buttons_frame, text="Edit Patient", command=self.crud_handler.edit_patient).pack(fill=tk.X, pady=(0, 5))
+        if self.auth_module.has_privilege(current_user, 'delete_patient'):
+            ttk.Button(buttons_frame, text="Delete Patient", command=self.crud_handler.delete_patient).pack(fill=tk.X)
 
         details_frame = ttk.LabelFrame(main_frame, text="Patient Details", padding="10")
         details_frame.grid(row=0, column=1, sticky="nsew")

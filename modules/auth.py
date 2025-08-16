@@ -60,8 +60,13 @@ class AuthModule:
         
         # Add default privileges
         privileges = [
-            'manage_doctors', 'manage_nurses', 'manage_patients',
-            'manage_settings', 'view_reports'
+            'view_doctors_tab', 'add_doctor', 'edit_doctor', 'delete_doctor',
+            'view_nurses_tab', 'add_nurse', 'edit_nurse', 'delete_nurse',
+            'view_patients_tab', 'add_patient', 'edit_patient', 'delete_patient',
+            'add_patient_stay', 'add_patient_item', 'add_patient_equipment',
+            'view_reports_tab', 'generate_report', 'export_report',
+            'view_settings_tab', 'manage_users', 'manage_items', 
+            'manage_care_levels', 'manage_equipment'
         ]
         for p in privileges:
             cursor.execute("INSERT OR IGNORE INTO privileges (name) VALUES (?)", (p,))

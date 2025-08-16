@@ -32,29 +32,35 @@ class SettingsModule:
         notebook = ttk.Notebook(main_frame)
         notebook.pack(fill=tk.BOTH, expand=True)
         
+        current_user = self.auth_module.current_user
+        
         general_tab = ttk.Frame(notebook)
         notebook.add(general_tab, text="General Settings")
         self.general_handler.setup_general_tab(general_tab)
         
-        user_tab = ttk.Frame(notebook)
-        notebook.add(user_tab, text="User Management")
-        self.user_management_handler.setup_user_tab(user_tab)
+        if self.auth_module.has_privilege(current_user, 'manage_users'):
+            user_tab = ttk.Frame(notebook)
+            notebook.add(user_tab, text="User Management")
+            self.user_management_handler.setup_user_tab(user_tab)
         
         log_tab = ttk.Frame(notebook)
         notebook.add(log_tab, text="Audit Log")
         self.audit_log_handler.setup_log_tab(log_tab)
 
-        item_tab = ttk.Frame(notebook)
-        notebook.add(item_tab, text="Item Management")
-        self.item_management_handler.setup_item_tab(item_tab)
+        if self.auth_module.has_privilege(current_user, 'manage_items'):
+            item_tab = ttk.Frame(notebook)
+            notebook.add(item_tab, text="Item Management")
+            self.item_management_handler.setup_item_tab(item_tab)
 
-        care_level_tab = ttk.Frame(notebook)
-        notebook.add(care_level_tab, text="Care Level Management")
-        self.care_level_management_handler.setup_care_level_tab(care_level_tab)
+        if self.auth_module.has_privilege(current_user, 'manage_care_levels'):
+            care_level_tab = ttk.Frame(notebook)
+            notebook.add(care_level_tab, text="Care Level Management")
+            self.care_level_management_handler.setup_care_level_tab(care_level_tab)
 
-        equipment_tab = ttk.Frame(notebook)
-        notebook.add(equipment_tab, text="Equipment Management")
-        self.equipment_management_handler.setup_equipment_tab(equipment_tab)
+        if self.auth_module.has_privilege(current_user, 'manage_equipment'):
+            equipment_tab = ttk.Frame(notebook)
+            notebook.add(equipment_tab, text="Equipment Management")
+            self.equipment_management_handler.setup_equipment_tab(equipment_tab)
 
     def _refresh_other_modules(self):
         """Refresh item lists in other modules."""
