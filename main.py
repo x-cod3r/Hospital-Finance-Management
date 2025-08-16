@@ -120,30 +120,39 @@ class ICUManagementApp:
         # Create and add tabs based on user privileges
         current_user = self.auth_module.current_user
         
-        if self.auth_module.has_privilege(current_user, 'manage_doctors'):
+        if self.auth_module.has_privilege(current_user, 'view_doctors_tab'):
             doctor_tab = ttk.Frame(notebook)
             notebook.add(doctor_tab, text="Doctors")
             doctor_module = DoctorModule(doctor_tab, self.auth_module)
         
-        if self.auth_module.has_privilege(current_user, 'manage_nurses'):
+        if self.auth_module.has_privilege(current_user, 'view_nurses_tab'):
             nurse_tab = ttk.Frame(notebook)
             notebook.add(nurse_tab, text="Nurses")
             nurse_module = NurseModule(nurse_tab, self.auth_module)
             
-        if self.auth_module.has_privilege(current_user, 'manage_patients'):
+        if self.auth_module.has_privilege(current_user, 'view_patients_tab'):
             patient_tab = ttk.Frame(notebook)
             notebook.add(patient_tab, text="Patients")
             patient_module = PatientModule(patient_tab, self.auth_module)
 
-        if self.auth_module.has_privilege(current_user, 'view_reports'):
+        if self.auth_module.has_privilege(current_user, 'view_reports_tab'):
             company_tab = ttk.Frame(notebook)
             notebook.add(company_tab, text="Company")
             company_module = CompanyModule(company_tab)
 
-        if self.auth_module.has_privilege(current_user, 'manage_settings'):
+        if self.auth_module.has_privilege(current_user, 'view_settings_tab'):
             settings_tab = ttk.Frame(notebook)
             notebook.add(settings_tab, text="Settings")
             settings_module = SettingsModule(settings_tab, self.auth_module)
+
+        # Add sign-out tab
+        sign_out_tab = ttk.Frame(notebook)
+        notebook.add(sign_out_tab, text="Sign Out")
+        
+        login_time = self.auth_module.log_action(current_user, "GET_LOGIN_TIME", "User is viewing login time")
+        ttk.Label(sign_out_tab, text=f"Logged in as: {current_user}").pack(pady=10)
+        ttk.Label(sign_out_tab, text=f"Login time: {login_time}").pack(pady=10)
+        ttk.Button(sign_out_tab, text="Sign Out", command=self.show_login).pack(pady=10)
 
         # Set up module connections
         if 'patient_module' in locals() and 'doctor_module' in locals():

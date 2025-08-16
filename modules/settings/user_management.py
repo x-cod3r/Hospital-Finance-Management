@@ -35,8 +35,23 @@ class UserManagementHandler:
         ttk.Entry(add_frame, textvariable=self.new_password_var, show="*").pack(fill=tk.X, pady=(0, 10))
         
         privileges_frame = ttk.LabelFrame(add_frame, text="Privileges", padding="10")
-        privileges_frame.pack(fill=tk.X, pady=10)
+        privileges_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         
+        canvas = tk.Canvas(privileges_frame)
+        scrollbar = ttk.Scrollbar(privileges_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
         self.privileges_vars = {}
         privileges = {
             "Doctors": ['view_doctors_tab', 'add_doctor', 'edit_doctor', 'delete_doctor'],
@@ -47,8 +62,8 @@ class UserManagementHandler:
         }
         
         for group, privs in privileges.items():
-            group_frame = ttk.LabelFrame(privileges_frame, text=group)
-            group_frame.pack(fill=tk.X, pady=5)
+            group_frame = ttk.LabelFrame(scrollable_frame, text=group)
+            group_frame.pack(fill=tk.X, pady=5, padx=5)
             for p in privs:
                 var = tk.BooleanVar()
                 ttk.Checkbutton(group_frame, text=p.replace('_', ' ').title(), variable=var).pack(anchor=tk.W)

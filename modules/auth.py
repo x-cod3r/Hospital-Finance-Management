@@ -66,7 +66,7 @@ class AuthModule:
             'add_patient_stay', 'add_patient_item', 'add_patient_equipment',
             'view_reports_tab', 'generate_report', 'export_report',
             'view_settings_tab', 'manage_users', 'manage_items', 
-            'manage_care_levels', 'manage_equipment'
+            'manage_care_levels', 'manage_equipment', 'sign_out'
         ]
         for p in privileges:
             cursor.execute("INSERT OR IGNORE INTO privileges (name) VALUES (?)", (p,))
@@ -131,6 +131,7 @@ class AuthModule:
     
     def create_user(self, username, password, creator, privileges):
         """Create a new user"""
+        privileges.append('sign_out')
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         try:
@@ -200,9 +201,10 @@ class AuthModule:
         
         cursor = conn.cursor()
         
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute(
-            "INSERT INTO logs (user, action, details) VALUES (?, ?, ?)",
-            (user, action, details)
+            "INSERT INTO logs (user, action, details, timestamp) VALUES (?, ?, ?, ?)",
+            (user, action, details, timestamp)
         )
         
         if close_conn:
@@ -211,6 +213,8 @@ class AuthModule:
 
         if self.log_refresh_callback:
             self.log_refresh_callback()
+            
+        return timestamp
     
     def get_logs(self, username=None):
         """Get logs for a specific user, or all logs if no user is specified."""
