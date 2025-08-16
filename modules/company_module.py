@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
+import configparser
 from tkcalendar import DateEntry
 from .utils import format_currency, show_error_message
 from .company.reporting import ReportingHandler
@@ -8,7 +9,14 @@ from .company.reporting import ReportingHandler
 class CompanyModule:
     def __init__(self, parent, setup_ui=True):
         self.parent = parent
-        self.reporting_handler = ReportingHandler()
+        
+        # Read configuration
+        self.config = configparser.ConfigParser()
+        self.config.read('Config/config.ini')
+        self.debug_mode = self.config.getboolean('DEBUG', 'debugmode', fallback=False)
+        
+        self.reporting_handler = ReportingHandler(debug_mode=self.debug_mode)
+        
         if setup_ui:
             self.setup_ui()
     
@@ -69,13 +77,16 @@ class CompanyModule:
     
     def generate_report(self):
         """Generate company report"""
-        print("Generating report...")
+        if self.debug_mode:
+            print("--- Generating Company Report (Debug Mode) ---")
+        
         try:
             from_date = self.from_date_entry.get_date().strftime("%Y-%m-%d")
             to_date = self.to_date_entry.get_date().strftime("%Y-%m-%d")
             report_type = self.report_type_var.get()
             
-            print(f"Report parameters: from={from_date}, to={to_date}, type={report_type}")
+            if self.debug_mode:
+                print(f"Report parameters: from={from_date}, to={to_date}, type={report_type}")
 
             # Validate dates
             if self.from_date_entry.get_date() > self.to_date_entry.get_date():
@@ -101,20 +112,44 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         self.results_text.insert(tk.END, report_header)
         
         # Get patient revenues and pass-through costs
+        if self.debug_mode:
+            print("Calculating patient revenues...")
         patient_revenues = self.reporting_handler.calculate_patient_revenues(from_date, to_date)
         total_patient_revenue = patient_revenues['total']
         pass_through_costs = patient_revenues['operational_cost']
+        if self.debug_mode:
+            print(f"Patient revenues calculated: Total={total_patient_revenue}, Pass-through={pass_through_costs}")
+            print("Patient details:", patient_revenues['details'])
 
         # Get staff costs
+        if self.debug_mode:
+            print("Calculating doctor costs...")
         doctor_costs = self.reporting_handler.calculate_doctor_costs(from_date, to_date)
+        if self.debug_mode:
+            print(f"Doctor costs calculated: Total={doctor_costs['total']}")
+            print("Doctor details:", doctor_costs['details'])
+            
+        if self.debug_mode:
+            print("Calculating nurse costs...")
         nurse_costs = self.reporting_handler.calculate_nurse_costs(from_date, to_date)
+        if self.debug_mode:
+            print(f"Nurse costs calculated: Total={nurse_costs['total']}")
+            print("Nurse details:", nurse_costs['details'])
+            
         total_staff_cost = doctor_costs['total'] + nurse_costs['total']
+        if self.debug_mode:
+            print(f"Total staff cost: {total_staff_cost}")
 
         # Calculate total operational costs
         total_operational_cost = total_staff_cost + pass_through_costs
+        if self.debug_mode:
+            print(f"Total operational cost: {total_operational_cost}")
         
         # Calculate net profit
         net_profit = total_patient_revenue - total_operational_cost
+        if self.debug_mode:
+            print(f"Net profit: {net_profit}")
+            print("--- Report Generation Complete ---")
 
         # Display summary
         summary_text = f"""

@@ -2,8 +2,13 @@ import sqlite3
 from datetime import datetime
 
 class ReportingHandler:
+    def __init__(self, debug_mode=False):
+        self.debug_mode = debug_mode
+
     def calculate_doctor_costs(self, from_date, to_date):
         """Calculate total doctor costs"""
+        if self.debug_mode:
+            print("\n--- Calculating Doctor Costs ---")
         conn = sqlite3.connect("db/doctors.db")
         cursor = conn.cursor()
         cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
@@ -47,10 +52,17 @@ class ReportingHandler:
             doctor_cost = (total_hours * hourly_rate) + total_bonus
             total_cost += doctor_cost
 
-            doctor_details.append({
-                'name': name,
-                'cost': doctor_cost
-            })
+            if self.debug_mode:
+                print(f"  Doctor: {name}")
+                print(f"    - Total Hours: {total_hours:.2f} * ${hourly_rate}/hr = ${total_hours * hourly_rate:.2f}")
+                print(f"    - Total Bonus: ${total_bonus:.2f}")
+                print(f"    - Total Cost for {name}: ${doctor_cost:.2f}")
+
+            if doctor_cost > 0:
+                doctor_details.append({
+                    'name': name,
+                    'cost': doctor_cost
+                })
 
         conn.close()
 
@@ -61,6 +73,8 @@ class ReportingHandler:
     
     def calculate_nurse_costs(self, from_date, to_date):
         """Calculate total nurse costs"""
+        if self.debug_mode:
+            print("\n--- Calculating Nurse Costs ---")
         conn = sqlite3.connect("db/nurses.db")
         cursor = conn.cursor()
         cursor.execute("ATTACH DATABASE 'db/interventions.db' AS interventions_db")
@@ -104,11 +118,18 @@ class ReportingHandler:
             nurse_cost = (total_hours * hourly_rate) + total_bonus
             total_cost += nurse_cost
 
-            nurse_details.append({
-                'name': name,
-                'level': level,
-                'cost': nurse_cost
-            })
+            if self.debug_mode:
+                print(f"  Nurse: {name} ({level})")
+                print(f"    - Total Hours: {total_hours:.2f} * ${hourly_rate}/hr = ${total_hours * hourly_rate:.2f}")
+                print(f"    - Total Bonus: ${total_bonus:.2f}")
+                print(f"    - Total Cost for {name}: ${nurse_cost:.2f}")
+
+            if nurse_cost > 0:
+                nurse_details.append({
+                    'name': name,
+                    'level': level,
+                    'cost': nurse_cost
+                })
 
         conn.close()
 
@@ -119,6 +140,8 @@ class ReportingHandler:
     
     def calculate_patient_revenues(self, from_date, to_date):
         """Calculate total patient revenues and operational costs from patient services."""
+        if self.debug_mode:
+            print("\n--- Calculating Patient Revenues ---")
         conn = sqlite3.connect("db/patients.db")
         cursor = conn.cursor()
         cursor.execute("ATTACH DATABASE 'db/items.db' AS items_db")
@@ -175,6 +198,13 @@ class ReportingHandler:
             # For the company, all item charges are pass-through costs
             patient_operational_cost = item_revenue
             total_operational_cost += patient_operational_cost
+
+            if self.debug_mode and patient_total_revenue > 0:
+                print(f"  Patient: {name}")
+                print(f"    - Stay Revenue: ${stay_revenue:.2f}")
+                print(f"    - Item Revenue (Pass-through cost): ${item_revenue:.2f}")
+                print(f"    - Equipment Revenue: ${equipment_revenue:.2f}")
+                print(f"    - Total Revenue from {name}: ${patient_total_revenue:.2f}")
 
             if patient_total_revenue > 0:
                 patient_details.append({
